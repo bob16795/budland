@@ -41,27 +41,45 @@ pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = if (builtin.is_test) std.testing.allocator else if (!builtin.link_libc or !useclib) gpa.allocator() else std.heap.c_allocator;
 
 const monrules = [_]MonitorRule{
-    .{ .name = "eDP-1", .mfact = 0.55, .nmaster = 1, .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 0, .y = 0 },
-    .{ .name = "DP-1", .mfact = 0.55, .nmaster = 1, .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 2560, .y = 0 },
-    // .{ .name = null, .mfact = 0.55, .nmaster = 1, .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = -1, .y = -1 },
+    .{ .name = "eDP-1", .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 0, .y = 0 },
+    .{ .name = "DP-1", .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 2560, .y = 0 },
+    // .{ .name = null,  .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = -1, .y = -1 },
 };
 
 const rules = [_]Rule{
-    .{ .id = "Firefox", .tags = 1 << 8 },
+    .{ .isfloating = true },
+    .{ .id = "kittyA", .container = 1 },
+    .{ .id = "kittyB", .container = 2 },
+    .{ .id = "discord", .container = 3 },
+    .{ .id = "htop", .container = 1 },
+    .{ .id = "Sxiv", .container = 2 },
+    .{ .id = "firefox", .container = 3 },
+    .{ .id = "Pavucontrol", .container = 2 },
+    .{ .id = "Code - Insiders", .container = 3 },
+    .{ .id = "cava", .container = 4 },
 };
 
 const layouts = [_]Layout{
     .{ .symbol = "---", .arrange = bud },
+    .{ .symbol = "[+]", .arrange = budgaps },
 };
 
 const MODKEY = c.WLR_MODIFIER_LOGO;
 // const MODKEY = c.WLR_MODIFIER_ALT;
 
-const keys = [_]Key{
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{"/usr/bin/kitty"} } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/firefox"} } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &.{"/usr/bin/bemenu-run"} } },
+const MENUCMD = .{ "/usr/bin/bemenu-run", "--fn", "CaskaydiaCovePL Nerd Font", "-H", "22", "--ab", "#262322", "--af", "#755e4a", "--nb", "#262322", "--nf", "#755e4a", "--hb", "#a86441", "--hf", "#daba8b" };
 
+const keys = [_]Key{
+    // terminals
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/kitty", "--class=kittyA" } } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/kitty", "--class=kittyB" } } },
+
+    // gui apps
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/firefox"} } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &MENUCMD } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_b, .func = spawn, .arg = .{ .v = &.{ "/usr/local/bin/dwlb", "-toggle-visibility", "selected" } } },
+
+    // misc
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .func = quit, .arg = .{ .i = 0 } },
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
@@ -72,7 +90,10 @@ const keys = [_]Key{
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = .{ .i = 0 } },
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_h, .func = cyclelayout, .arg = .{ .i = 1 } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_H, .func = cyclelayout, .arg = .{ .i = -1 } },
 
+    // tags
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_F2, .func = view, .arg = .{ .ui = 1 << 1 } },
@@ -147,14 +168,13 @@ const Rule = struct {
     id: ?[]const u8 = null,
     title: ?[]const u8 = null,
     tags: u32 = 0,
+    container: u8 = 0,
     isfloating: bool = false,
     monitor: i32 = -1,
 };
 
 const MonitorRule = struct {
     name: ?[:0]const u8,
-    mfact: f32,
-    nmaster: u32,
     scale: f32,
     lt: *const Layout,
     rr: c.wl_output_transform,
@@ -206,9 +226,6 @@ const Monitor = struct {
     sellt: u32,
 
     tagset: [2]u32,
-    mfact: f64,
-
-    nmaster: u32,
 
     ltsymbol: *const []const u8,
 };
@@ -335,7 +352,7 @@ pub fn bud(mon: *Monitor) void {
             if (client.container == 0) {
                 client.container = 3;
             }
-            if (!client.isfloating)
+            if (!client.isfloating and !client.isfullscreen)
                 containers[client.container - 1] = true;
         }
     }
@@ -354,7 +371,7 @@ pub fn bud(mon: *Monitor) void {
 
     for (clients.items) |client| {
         if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-            if (client.isfloating) continue;
+            if (client.isfloating or client.isfullscreen) continue;
 
             var new = mon.w;
             if (client.container == 1) {
@@ -373,6 +390,67 @@ pub fn bud(mon: *Monitor) void {
                 if (containers[0] or containers[2]) new.width = basplit;
                 if (containers[1]) new.height = new.height - bdsplitn;
                 if (containers[1]) new.y = new.y + bdsplitn;
+            }
+            resize(client, new, false);
+        }
+    }
+}
+
+pub fn budgaps(mon: *Monitor) void {
+    var containers: [4]bool = .{ false, false, false, false };
+
+    for (clients.items) |client| {
+        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
+            if (client.container == 0) {
+                client.container = 3;
+            }
+            if (!client.isfloating and !client.isfullscreen)
+                containers[client.container - 1] = true;
+        }
+    }
+
+    var acsplitn: i32 = acsplit;
+    if (acsplitn < 0)
+        acsplitn += mon.w.height;
+    acsplitn -= (16);
+    var bdsplitn: i32 = bdsplit;
+    if (bdsplitn < 0)
+        bdsplitn += mon.w.height;
+    var absplitn: i32 = absplit;
+    if (absplitn < 0)
+        absplitn += mon.w.width;
+    var basplit = (mon.w.width - absplitn);
+
+    for (clients.items) |client| {
+        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
+            if (client.isfloating or client.isfullscreen) continue;
+            var new = mon.w;
+            new.x += gappso;
+            new.y += gappso;
+            new.width -= gappso;
+            new.height -= gappso;
+            if (client.container == 1) {
+                if (containers[2]) new.height = acsplitn - gappsi;
+                if (containers[1] or containers[3]) new.width = new.width - acsplitn - gappsi;
+                new.width = new.width - gappso;
+                if (!containers[2]) new.height = new.height - gappso;
+            } else if (client.container == 2) {
+                if (containers[0] or containers[2]) new.x = new.x + absplitn - gappso;
+                if (containers[0] or containers[2]) new.width = basplit - gappso else new.width = new.width - gappso;
+                if (containers[3]) new.height = bdsplitn - gappsi;
+                if (!containers[3]) new.height = new.height - gappso;
+            } else if (client.container == 3) {
+                if (containers[1] or containers[3]) new.width = new.width - basplit - gappsi;
+                new.width = new.width - gappso;
+                if (containers[0]) new.height = new.height - acsplitn - gappsi;
+                new.height = new.height - gappso;
+                if (containers[0]) new.y = new.y + acsplitn - gappsi;
+            } else if (client.container == 4) {
+                if (containers[0] or containers[2]) new.x = new.x + absplitn - gappso;
+                if (containers[0] or containers[2]) new.width = basplit - gappso else new.width = new.width - gappso;
+                if (containers[1]) new.height = new.height - bdsplitn - gappsi;
+                new.height = new.height - gappso;
+                if (containers[1]) new.y = new.y + bdsplitn + gappsi;
             }
             resize(client, new, false);
         }
@@ -546,14 +624,16 @@ pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
             client.geom.height = @min(max.height + (2 * client.bw), client.geom.height);
     }
 
-    if (client.geom.x >= bbox.x + bbox.width)
+    if (client.geom.x > bbox.x + bbox.width)
         client.geom.x = bbox.x + bbox.width - client.geom.width;
-    if (client.geom.y >= bbox.y + bbox.height)
+    if (client.geom.y > bbox.y + bbox.height)
         client.geom.y = bbox.y + bbox.height - client.geom.height;
-    if (client.geom.x + client.geom.width + 2 * client.bw <= bbox.x)
+    if (client.geom.x + client.geom.width + 2 * client.bw < bbox.x)
         client.geom.x = bbox.x;
-    if (client.geom.y + client.geom.height + 2 * client.bw <= bbox.y)
+    if (client.geom.y + client.geom.height + 2 * client.bw < bbox.y)
         client.geom.y = bbox.y;
+    if (client.geom.width < 2 * client.bw + 20) client.geom.width = 2 * client.bw + 20;
+    if (client.geom.height < 2 * client.bw + 20) client.geom.height = 2 * client.bw + 20;
 }
 
 pub fn client_get_size_hints(client: *Client, min: *c.wlr_box, max: *c.wlr_box) void {
@@ -1032,8 +1112,6 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     m.tagset[1] = 1;
     for (monrules) |r| {
         if (r.name == null or c.strcmp(wlr_output.name, r.name.?) != 0) {
-            m.mfact = r.mfact;
-            m.nmaster = r.nmaster;
             c.wlr_output_set_scale(wlr_output, r.scale);
             _ = c.wlr_xcursor_manager_load(cursor_mgr, r.scale);
             m.lt[0] = r.lt;
@@ -1041,7 +1119,6 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
             c.wlr_output_set_transform(wlr_output, r.rr);
             m.m.x = r.x;
             m.m.y = r.y;
-            break;
         }
     }
 
@@ -1422,6 +1499,7 @@ pub fn applyrules(client: *Client) void {
     for (rules) |r| {
         if ((r.id == null or std.mem.eql(u8, appid, r.id.?)) and (r.title == null or std.mem.eql(u8, title, r.title.?))) {
             client.isfloating = r.isfloating;
+            client.container = r.container;
             newtags |= r.tags;
             for (mons, 0..) |m, idx| {
                 if (r.monitor == idx) {
@@ -1579,7 +1657,10 @@ pub fn outputmgrapplyortest(config: *c.wlr_output_configuration_v1, tst: bool) v
 
 pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
-    _ = listener;
+    var client: *Client = undefined;
+    client = c.wl_container_of(listener, client, "set_title");
+    if (client == focustop(client.mon))
+        printstatus();
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1613,7 +1694,9 @@ pub fn client_wants_fullscreen(client: *Client) bool {
 
 pub fn maximizenotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
-    _ = listener;
+    var client: *Client = undefined;
+    client = c.wl_container_of(listener, client, "maximize");
+    _ = c.wlr_xdg_surface_schedule_configure(client.surface.xdg);
 }
 
 pub fn destroynotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1715,14 +1798,15 @@ pub fn locksession(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     _ = listener;
 }
 
-pub fn destroysessionmgr(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = data;
-    _ = listener;
+pub fn destroysessionmgr(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    c.wl_list_remove(&session_lock_create_lock.link);
+    c.wl_list_remove(&session_lock_mgr_destroy.link);
 }
 
 pub fn createdecoration(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = data;
     _ = listener;
+    var dec = @ptrCast(*c.wlr_xdg_toplevel_decoration_v1, @alignCast(@alignOf(c.wlr_xdg_toplevel_decoration_v1), data));
+    _ = c.wlr_xdg_toplevel_decoration_v1_set_mode(dec, c.WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 }
 
 pub fn requeststartdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1829,10 +1913,7 @@ pub fn axisnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) v
     c.wlr_seat_pointer_notify_axis(seat, event.time_msec, event.orientation, event.delta, event.delta_discrete, event.source);
 }
 
-pub fn cursorframe(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = data;
-    _ = listener;
-
+pub fn cursorframe(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
     c.wlr_seat_pointer_notify_frame(seat);
 }
 
@@ -1947,6 +2028,30 @@ pub fn spawn(arg: *const Arg) void {
     proc.spawn() catch return;
 }
 
+pub fn setlayout(arg: *const Arg) void {
+    if (selmon == null) return;
+    var lt = &layouts[@intCast(usize, arg.i)];
+
+    if (lt != selmon.?.lt[selmon.?.sellt])
+        selmon.?.sellt ^= 1;
+    selmon.?.lt[selmon.?.sellt] = lt;
+    selmon.?.ltsymbol = &selmon.?.lt[selmon.?.sellt].symbol;
+    arrange(selmon.?);
+    printstatus();
+}
+
+pub fn cyclelayout(arg: *const Arg) void {
+    for (layouts, 0..) |_, idx| {
+        if (&layouts[idx] == selmon.?.lt[selmon.?.sellt]) {
+            var i = @intCast(i32, idx);
+            i += arg.i;
+            i = @mod(i, @intCast(i32, layouts.len));
+            setlayout(&.{ .i = i });
+            return;
+        }
+    }
+}
+
 pub fn view(arg: *const Arg) void {
     if (selmon == null or (arg.ui & TAGMASK) == selmon.?.tagset[selmon.?.seltags])
         return;
@@ -2043,6 +2148,7 @@ pub fn setcon(arg: *const Arg) void {
     var sel = focustop(selmon);
     if (sel != null) {
         sel.?.container = @intCast(u8, arg.ui);
+        setfloating(sel.?, false);
 
         arrange(selmon.?);
     }
@@ -2381,6 +2487,6 @@ pub fn cleanup() !void {
 
 pub fn main() !void {
     try setup();
-    try run("dwlb -font \"monospace:size=16\"");
+    try run("dwlb -font \"CaskaydiaCovePL Nerd Font:size=16\"");
     try cleanup();
 }
