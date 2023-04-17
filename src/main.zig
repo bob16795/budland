@@ -3,14 +3,18 @@ const c = @import("c.zig");
 
 const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = false;
-const bordercolor: [4]f32 = .{ 0.5, 0.5, 0.5, 1.0 };
-const focuscolor: [4]f32 = .{ 0.0, 0.5, 0.5, 1.0 };
-const fullscreen_bg: [4]f32 = .{ 0.5, 0.1, 0.1, 1.0 };
+const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
+const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
+const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
 
 const absplit = -450;
 const acsplit = 200;
 const bdsplit = 300;
+
+const tagcount = 4;
+
+const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
 
 const gappso = 40;
 const gappsi = 15;
@@ -51,11 +55,12 @@ const layouts = [_]Layout{
 };
 
 const MODKEY = c.WLR_MODIFIER_LOGO;
+// const MODKEY = c.WLR_MODIFIER_ALT;
 
 const keys = [_]Key{
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{"/usr/bin/kitty"} } },
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/firefox"} } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &.{"/usr/bin/bmenu-run"} } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &.{"/usr/bin/bemenu-run"} } },
 
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .func = quit, .arg = .{ .i = 0 } },
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
@@ -64,8 +69,18 @@ const keys = [_]Key{
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_dollar, .func = setcon, .arg = .{ .ui = 4 } },
     .{ .mod = MODKEY, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = 1 } },
     .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = -1 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = undefined },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = undefined },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = .{ .i = 0 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
+
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F2, .func = view, .arg = .{ .ui = 1 << 1 } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F2, .func = tag, .arg = .{ .ui = 1 << 1 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F3, .func = view, .arg = .{ .ui = 1 << 2 } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F3, .func = tag, .arg = .{ .ui = 1 << 2 } },
+    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F4, .func = view, .arg = .{ .ui = 1 << 3 } },
+    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F4, .func = tag, .arg = .{ .ui = 1 << 3 } },
 };
 
 const buttons = [_]Button{
@@ -123,7 +138,7 @@ const Key = struct {
 
 const Arg = union {
     i: i32,
-    ui: i32,
+    ui: u32,
     f: f32,
     v: []const []const u8,
 };
@@ -157,9 +172,10 @@ const LayerSurface = struct {
     type: ClientType,
     geom: c.wlr_box,
     mon: ?*Monitor,
+
     scene: *c.wlr_scene_tree,
     popups: *c.wlr_scene_tree,
-    layer: *c.wlr_scene_layer_surface_v1,
+    scene_layer: *c.wlr_scene_layer_surface_v1,
     mapped: bool,
     layer_surface: *c.wlr_layer_surface_v1,
 
@@ -183,7 +199,7 @@ const Monitor = struct {
     m: c.wlr_box,
     w: c.wlr_box,
 
-    layers: [4][]LayerSurface,
+    layers: [4]std.ArrayList(*LayerSurface),
     lt: [2]*const Layout,
 
     seltags: u32,
@@ -272,7 +288,7 @@ var grabcx: i32 = 0;
 var grabcy: i32 = 0;
 var netatom: std.EnumArray(Atoms, c.Atom) = undefined;
 
-var cursor_image: []const u8 = "left_ptr";
+var cursor_image: ?[]const u8 = "left_ptr\x00";
 
 var layers: std.EnumArray(Layer, *c.wlr_scene_tree) = undefined;
 
@@ -305,6 +321,7 @@ var new_virtual_keyboard: c.wl_listener = .{ .link = undefined, .notify = virtua
 var xwayland_ready: c.wl_listener = .{ .link = undefined, .notify = xwaylandready };
 var new_xwayland_surface: c.wl_listener = .{ .link = undefined, .notify = createnotifyx11 };
 var idle_inhibitor_destroy: c.wl_listener = .{ .link = undefined, .notify = destroyidleinhibitor };
+var request_cursor: c.wl_listener = .{ .link = undefined, .notify = setcursor };
 var request_start_drag: c.wl_listener = .{ .link = undefined, .notify = requeststartdrag };
 var start_drag: c.wl_listener = .{ .link = undefined, .notify = startdrag };
 var drag_icon_destroy: c.wl_listener = .{ .link = undefined, .notify = destroydragicon };
@@ -362,9 +379,7 @@ pub fn bud(mon: *Monitor) void {
     }
 }
 
-pub fn updatemons(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = data;
-    _ = listener;
+pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
     var config = c.wlr_output_configuration_v1_create();
     var config_head: *c.wlr_output_configuration_head_v1 = undefined;
 
@@ -518,19 +533,17 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
 }
 
 pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
-    if (client.isfullscreen) {
+    if (!client.isfullscreen) {
         var min: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         var max: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         client_get_size_hints(client, &min, &max);
         client.geom.width = @max(min.width + (2 * client.bw), client.geom.width);
         client.geom.height = @max(min.height + (2 * client.bw), client.geom.height);
 
-        if (max.width > 0) {
+        if (max.width > 0 and !(2 * client.bw > 2147483647 - max.width))
             client.geom.width = @min(max.width + (2 * client.bw), client.geom.width);
-        }
-        if (max.height > 0) {
+        if (max.height > 0 and !(2 * client.bw > 2147483647 - max.height))
             client.geom.height = @min(max.height + (2 * client.bw), client.geom.height);
-        }
     }
 
     if (client.geom.x >= bbox.x + bbox.width)
@@ -583,9 +596,7 @@ pub fn arrangelayers(m: *Monitor) void {
         arrangelayer(m, m.layers[3 - i], &usable_area, false);
 
     for (layers_above_shell) |layer| {
-        for (0..m.layers[layer].len) |idx| {
-            var layersurface = &m.layers[layer][m.layers.len - idx - 1];
-
+        for (m.layers[layer].items) |layersurface| {
             if (!locked and (layersurface.layer_surface.current.keyboard_interactive != 0) and layersurface.mapped) {
                 focusclient(null, false);
                 exclusive_focus = @ptrToInt(layersurface);
@@ -706,9 +717,9 @@ pub fn motionnotify(time: u32) void {
         }
     }
 
-    if (surface == null and seat.drag == null and !std.mem.eql(u8, cursor_image, "left_ptr")) {
-        cursor_image = "left_ptr";
-        c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.ptr, cursor);
+    if (surface == null and seat.drag == null and cursor_image != null and !std.mem.eql(u8, cursor_image.?, "left_ptr\x00")) {
+        cursor_image = "left_ptr\x00";
+        c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
     }
 
     pointerfocus(client, surface, sx, sy, time);
@@ -869,17 +880,17 @@ pub inline fn visible_on(client: *Client, mon: *Monitor) bool {
     return client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0;
 }
 
-pub fn arrangelayer(mon: *Monitor, list: []LayerSurface, usable_area: *c.wlr_box, exclusive: bool) void {
+pub fn arrangelayer(mon: *Monitor, list: std.ArrayList(*LayerSurface), usable_area: *c.wlr_box, exclusive: bool) void {
     var full_area = mon.m;
 
-    for (list) |*layersurface| {
+    for (list.items) |layersurface| {
         var wlr_layer_surface = layersurface.layer_surface;
         var state = &wlr_layer_surface.current;
 
         if (exclusive != (state.exclusive_zone > 0))
             continue;
 
-        c.wlr_scene_layer_surface_v1_configure(layersurface.layer, &full_area, usable_area);
+        c.wlr_scene_layer_surface_v1_configure(layersurface.scene_layer, &full_area, usable_area);
         c.wlr_scene_node_set_position(&layersurface.popups.node, layersurface.scene.node.x, layersurface.scene.node.y);
         layersurface.geom.x = layersurface.scene.node.x;
         layersurface.geom.y = layersurface.scene.node.y;
@@ -995,8 +1006,9 @@ pub fn client_set_fullscreen(client: *Client, fullscreen: bool) void {
     _ = c.wlr_xdg_toplevel_set_fullscreen(client.surface.xdg.unnamed_0.toplevel, fullscreen);
 }
 
-pub fn createmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = listener;
+var bad: []const u8 = "???";
+
+pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     var wlr_output = @ptrCast(*c.wlr_output, @alignCast(@alignOf(c.wlr_output), data));
     var m = allocator.create(Monitor) catch {
         return;
@@ -1005,7 +1017,8 @@ pub fn createmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
         .output = wlr_output,
         .scene_output = undefined,
         .fullscreen_bg = undefined,
-        .ltsymbol = undefined,
+        .ltsymbol = &bad,
+        .layers = undefined,
         .lt = undefined,
     });
     wlr_output.data = m;
@@ -1013,7 +1026,7 @@ pub fn createmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     _ = c.wlr_output_init_render(wlr_output, alloc, drw);
 
     for (&m.layers) |*layer| {
-        layer.* = allocator.alloc(LayerSurface, 0) catch return;
+        layer.* = std.ArrayList(*LayerSurface).init(allocator);
     }
     m.tagset[0] = 1;
     m.tagset[1] = 1;
@@ -1142,8 +1155,109 @@ pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) call
 }
 
 pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    _ = data;
     _ = listener;
+
+    var wlr_layer_surface = @ptrCast(*c.wlr_layer_surface_v1, @alignCast(@alignOf(c.wlr_layer_surface_v1), data));
+    if (wlr_layer_surface.output == null)
+        wlr_layer_surface.output = if (selmon != null) selmon.?.output else null;
+
+    if (wlr_layer_surface.output == null)
+        c.wlr_layer_surface_v1_destroy(wlr_layer_surface);
+
+    var layersurface = allocator.create(LayerSurface) catch return;
+    layersurface.type = .LayerShell;
+
+    layersurface.surface_commit.notify = commitlayersurfacenotify;
+    c.wl_signal_add(&wlr_layer_surface.surface.*.events.commit, &layersurface.surface_commit);
+    layersurface.destroy.notify = destroylayersurfacenotify;
+    c.wl_signal_add(&wlr_layer_surface.events.destroy, &layersurface.destroy);
+    layersurface.map.notify = maplayersurfacenotify;
+    c.wl_signal_add(&wlr_layer_surface.events.map, &layersurface.map);
+    layersurface.unmap.notify = unmaplayersurfacenotify;
+    c.wl_signal_add(&wlr_layer_surface.events.unmap, &layersurface.unmap);
+
+    layersurface.layer_surface = wlr_layer_surface;
+    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), wlr_layer_surface.output.*.data));
+    wlr_layer_surface.data = layersurface;
+
+    layersurface.scene_layer = c.wlr_scene_layer_surface_v1_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)), wlr_layer_surface);
+    layersurface.scene = layersurface.scene_layer.tree;
+    layersurface.popups = c.wlr_scene_tree_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)));
+
+    layersurface.scene.node.data = layersurface;
+
+    layersurface.mon.?.layers[wlr_layer_surface.pending.layer].append(layersurface) catch return;
+
+    var old_state = wlr_layer_surface.current;
+    wlr_layer_surface.current = wlr_layer_surface.pending;
+    layersurface.mapped = true;
+    arrangelayers(layersurface.mon.?);
+    wlr_layer_surface.current = old_state;
+}
+
+pub fn commitlayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    var layersurface: *LayerSurface = undefined;
+    layersurface = c.wl_container_of(listener, layersurface, "surface_commit");
+
+    var wlr_layer_surface = layersurface.layer_surface;
+    var wlr_output = wlr_layer_surface.output;
+
+    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), wlr_output.*.data));
+
+    if (wlr_output == null)
+        return;
+
+    var lyr = layers.get(@intToEnum(Layer, wlr_layer_surface.current.layer));
+    if (lyr != layersurface.scene.node.parent) {
+        return;
+    }
+
+    if (wlr_layer_surface.current.layer < c.ZWLR_LAYER_SHELL_V1_LAYER_TOP)
+        c.wlr_scene_node_reparent(&layersurface.popups.node, layers.get(.LyrTop));
+
+    if (wlr_layer_surface.current.committed == 0 and layersurface.mapped == wlr_layer_surface.mapped)
+        return;
+    layersurface.mapped = wlr_layer_surface.mapped;
+
+    arrangelayers(layersurface.mon.?);
+}
+
+pub fn destroylayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    var layersurface: *LayerSurface = undefined;
+    layersurface = c.wl_container_of(listener, layersurface, "destroy");
+
+    var list = &(layersurface.mon.?.layers[layersurface.layer_surface.pending.layer]);
+
+    var idx = std.mem.indexOf(*LayerSurface, list.*.items, &.{layersurface}) orelse 0;
+    _ = list.*.orderedRemove(idx);
+
+    c.wl_list_remove(&layersurface.destroy.link);
+    c.wl_list_remove(&layersurface.map.link);
+    c.wl_list_remove(&layersurface.unmap.link);
+    c.wl_list_remove(&layersurface.surface_commit.link);
+    c.wlr_scene_node_destroy(&layersurface.scene.node);
+    allocator.destroy(layersurface);
+}
+
+pub fn maplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    var layersurface: *LayerSurface = undefined;
+    layersurface = c.wl_container_of(listener, layersurface, "map");
+
+    c.wlr_surface_send_enter(layersurface.layer_surface.surface, layersurface.mon.?.output);
+    motionnotify(0);
+}
+
+pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    var layersurface: *LayerSurface = undefined;
+    layersurface = c.wl_container_of(listener, layersurface, "unmap");
+
+    layersurface.mapped = false;
+    c.wlr_scene_node_set_enabled(&layersurface.scene.node, false);
+    if (@ptrToInt(layersurface) == exclusive_focus)
+        exclusive_focus = null;
+    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), layersurface.layer_surface.output.*.data));
+    if (layersurface.layer_surface.*.output != null and layersurface.mon != null)
+        arrangelayers(layersurface.mon.?);
 }
 
 pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1230,7 +1344,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
             c.wlr_scene_node_set_position(&client.scene.node, client.geom.x + borderpx, client.geom.y + borderpx);
 
             if (client_wants_focus(client)) {
-                focusclient(client, false);
+                focusclient(client, true);
                 exclusive_focus = @ptrToInt(client);
             }
             break :before;
@@ -1278,7 +1392,7 @@ pub fn client_set_tiled(client: *Client, edges: u32) void {
 
 pub fn client_get_parent(client: *Client) ?*Client {
     var p: ?*Client = null;
-    if (client.type == .X11Managed or client.type == .X11Unmanaged and client.surface.xwayland.parent != null) {
+    if ((client.type == .X11Managed or client.type == .X11Unmanaged) and client.surface.xwayland.parent != null) {
         _ = toplevel_from_wlr_surface(client.surface.xwayland.parent.*.surface, &p, null);
         return p;
     }
@@ -1356,13 +1470,10 @@ pub fn client_is_float_type(client: *Client) bool {
         if (surface.modal)
             return true;
 
-        // TODO
-        // for (size_t i = 0; i < surface->window_type_len; i++)
-        // 	if (surface->window_type[i] == netatom[NetWMWindowTypeDialog]
-        // 			|| surface->window_type[i] == netatom[NetWMWindowTypeSplash]
-        // 			|| surface->window_type[i] == netatom[NetWMWindowTypeToolbar]
-        // 			|| surface->window_type[i] == netatom[NetWMWindowTypeUtility])
-        // 		return 1;
+        for (0..surface.window_type_len, surface.window_type) |_, window_type| {
+            if (window_type == netatom.get(.NetWMWindowTypeDialog) or window_type == netatom.get(.NetWMWindowTypeSplash) or window_type == netatom.get(.NetWMWindowTypeToolbar) or window_type == netatom.get(.NetWMWindowTypeUtility))
+                return true;
+        }
     }
 
     return ((min.width > 0 or min.height > 0 or max.width > 0 or max.height > 0) and (min.width == max.width or min.height == max.height));
@@ -1471,9 +1582,33 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     _ = listener;
 }
 
+pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = listener;
+
+    var event = @ptrCast(*c.wlr_seat_pointer_request_set_cursor_event, @alignCast(@alignOf(c.wlr_seat_pointer_request_set_cursor_event), data));
+
+    if (cursor_mode != .CurNormal and cursor_mode != .CurPressed)
+        return;
+
+    cursor_image = null;
+    if (event.seat_client == seat.pointer_state.focused_client)
+        c.wlr_cursor_set_surface(cursor, event.surface, event.hotspot_x, event.hotspot_y);
+}
+
 pub fn fullscreennotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
-    _ = listener;
+
+    var client: *Client = undefined;
+    client = c.wl_container_of(listener, client, "fullscreen");
+    setfullscreen(client, client_wants_fullscreen(client));
+}
+
+pub fn client_wants_fullscreen(client: *Client) bool {
+    if (client.type == .X11Managed or client.type == .X11Unmanaged) {
+        return client.surface.xwayland.fullscreen;
+    }
+
+    return client.surface.xdg.unnamed_0.toplevel.*.requested.fullscreen;
 }
 
 pub fn maximizenotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1512,7 +1647,6 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
         .scene_surface = undefined,
         .border = undefined,
         .surface = undefined,
-        .type = .XDGShell,
     });
 
     xsurface.data = client;
@@ -1569,7 +1703,11 @@ pub fn configurex11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
 pub fn sethints(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
-    _ = listener;
+    var client: *Client = undefined;
+    client = c.wl_container_of(listener, client, "set_hints");
+    if (client != focustop(selmon)) {
+        printstatus();
+    }
 }
 
 pub fn locksession(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1638,6 +1776,9 @@ pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
     var event = @ptrCast(*c.wlr_pointer_button_event, @alignCast(@alignOf(c.wlr_pointer_button_event), data));
+
+    c.wlr_idle_notify_activity(idle, seat);
+    c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
     switch (event.state) {
         c.WLR_BUTTON_PRESSED => sw: {
@@ -1806,11 +1947,40 @@ pub fn spawn(arg: *const Arg) void {
     proc.spawn() catch return;
 }
 
+pub fn view(arg: *const Arg) void {
+    if (selmon == null or (arg.ui & TAGMASK) == selmon.?.tagset[selmon.?.seltags])
+        return;
+    selmon.?.seltags ^= 1;
+    if ((arg.ui & TAGMASK) != 0)
+        selmon.?.tagset[selmon.?.seltags] = arg.ui & TAGMASK;
+    focusclient(focustop(selmon.?), true);
+    arrange(selmon.?);
+    printstatus();
+}
+
+pub fn tag(arg: *const Arg) void {
+    if (focustop(selmon)) |sel| {
+        if ((arg.ui & TAGMASK) != 0) {
+            sel.tags = arg.ui & TAGMASK;
+            focusclient(focustop(selmon), true);
+            arrange(selmon.?);
+        }
+    }
+    printstatus();
+}
+
 pub fn togglefloating(arg: *const Arg) void {
     _ = arg;
     var sel = focustop(selmon);
     if (sel != null)
         setfloating(sel.?, !sel.?.isfloating);
+}
+
+pub fn togglefullscreen(arg: *const Arg) void {
+    _ = arg;
+    var sel = focustop(selmon);
+    if (sel != null)
+        setfullscreen(sel.?, !sel.?.isfullscreen);
 }
 
 pub fn killclient(arg: *const Arg) void {
@@ -1847,6 +2017,7 @@ pub fn moveresize(arg: *const Arg) void {
 
     if (grabc == null or grabc.?.type == .X11Unmanaged or grabc.?.isfullscreen)
         return;
+
     setfloating(grabc.?, true);
 
     cursor_mode = @intToEnum(Cursors, arg.ui);
@@ -1856,13 +2027,13 @@ pub fn moveresize(arg: *const Arg) void {
             grabcy = @floatToInt(i32, cursor.y) - grabc.?.geom.y;
 
             cursor_image = "fleur\x00";
-            c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.ptr, cursor);
+            c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
         },
         .CurResize => {
             c.wlr_cursor_warp_closest(cursor, null, @intToFloat(f64, grabc.?.geom.x + grabc.?.geom.width), @intToFloat(f64, grabc.?.geom.y + grabc.?.geom.height));
 
             cursor_image = "bottom_right_corner\x00";
-            c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.ptr, cursor);
+            c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
         },
         else => {},
     }
@@ -2087,7 +2258,7 @@ pub fn setup() !void {
     virtual_keyboard_mgr = c.wlr_virtual_keyboard_manager_v1_create(dpy);
     c.wl_signal_add(&virtual_keyboard_mgr.events.new_virtual_keyboard, &new_virtual_keyboard);
     seat = c.wlr_seat_create(dpy, "seat0");
-    // c.wl_signal_add(&seat.events.request_set_cursor, &request_cursor);
+    c.wl_signal_add(&seat.events.request_set_cursor, &request_cursor);
     // c.wl_signal_add(&seat.events.request_set_selection, &request_set_sel);
     // c.wl_signal_add(&seat.events.request_set_primary_selection, &request_set_psel);
     c.wl_signal_add(&seat.events.request_start_drag, &request_start_drag);
@@ -2120,6 +2291,7 @@ pub fn printstatus() void {
     for (mons) |mon| {
         var occ: u32 = 0;
         var urg: u32 = 0;
+        var sel: u32 = 0;
 
         for (clients.items) |client| {
             if (client.mon != mon) {
@@ -2128,23 +2300,64 @@ pub fn printstatus() void {
             occ |= client.tags;
             if (client.isurgent) urg |= client.tags;
         }
+
+        if (focustop(mon)) |client| {
+            var title = client_get_title(client) orelse "broken";
+            var appid = client_get_appid(client) orelse "broken";
+
+            _ = c.printf("%s title %s\n", mon.output.name, title.ptr);
+            _ = c.printf("%s appid %s\n", mon.output.name, appid.ptr);
+            _ = c.printf("%s fullscreen %u\n", mon.output.name, client.isfullscreen);
+            _ = c.printf("%s floating %u\n", mon.output.name, client.isfloating);
+
+            sel = client.tags;
+        } else {
+            _ = c.printf("%s title \n", mon.output.name);
+            _ = c.printf("%s appid \n", mon.output.name);
+            _ = c.printf("%s fullscreen \n", mon.output.name);
+            _ = c.printf("%s floating \n", mon.output.name);
+            sel = 0;
+        }
+        _ = c.printf("%s selmon %u\n", mon.output.name, mon == selmon);
+        _ = c.printf("%s tags %u %u %u %u\n", mon.output.name, occ, mon.tagset[mon.seltags], sel, urg);
+        _ = c.printf("%s layout %s\n", mon.output.name, mon.ltsymbol.*.ptr);
     }
+
+    _ = c.fflush(c.stdout);
 }
 
-pub fn run() !void {
+pub fn run(startup_cmd: ?[]const u8) !void {
     const socket = c.wl_display_add_socket_auto(dpy) orelse {
         return error.SocketFailed;
     };
     _ = c.setenv("WAYLAND_DISPLAY", socket, 1);
-
     std.log.info("{s}", .{socket});
 
     if (!c.wlr_backend_start(backend)) return error.BackendStart;
 
+    if (startup_cmd) |startup| {
+        var tmp = [_]i32{ 0, 0 };
+        var piperw: []i32 = &tmp;
+        if (c.pipe(piperw.ptr) < 0)
+            return error.StartupPipe;
+        if (c.fork() != 0) {
+            _ = c.dup2(piperw[0], c.STDIN_FILENO);
+            _ = c.close(piperw[0]);
+            _ = c.close(piperw[1]);
+            _ = c.execl("/bin/sh", "/bin/sh", "-c", startup.ptr);
+            std.c.exit(0);
+        }
+        _ = c.dup2(piperw[1], c.STDOUT_FILENO);
+        _ = c.close(piperw[1]);
+        _ = c.close(piperw[0]);
+    }
+
+    printstatus();
+
     selmon = xytomon(cursor.x, cursor.y);
 
     c.wlr_cursor_warp_closest(cursor, null, cursor.x, cursor.y);
-    c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.ptr, cursor);
+    c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
 
     c.wl_display_run(dpy);
 }
@@ -2168,6 +2381,6 @@ pub fn cleanup() !void {
 
 pub fn main() !void {
     try setup();
-    try run();
+    try run("dwlb -font \"monospace:size=16\"");
     try cleanup();
 }
