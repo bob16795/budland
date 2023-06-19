@@ -1,5 +1,8 @@
 const std = @import("std");
 const c = @import("c.zig");
+const cfg = @import("config.zig");
+
+var configData: cfg.Config = undefined;
 
 const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = false;
@@ -7,10 +10,6 @@ const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
 const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
-
-const absplit = -450;
-const acsplit = 200;
-const bdsplit = 300;
 
 const tagcount = 4;
 
@@ -20,7 +19,7 @@ const gappso = 40;
 const gappsi = 15;
 
 const natural_scrolling = 0;
-const disable_while_typing = 1;
+const disable_while_typing = 0;
 const left_handed = 0;
 const middle_button_emulation = 0;
 
@@ -28,7 +27,7 @@ const scroll_method = c.LIBINPUT_CONFIG_SCROLL_2FG;
 const click_method = c.LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
 const send_events_mode = c.LIBINPUT_CONFIG_SEND_EVENTS_ENABLED;
 const accel_profile = c.LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
-const accel_speed = 0.0;
+const accel_speed = 10.0;
 const button_map = c.LIBINPUT_CONFIG_TAP_MAP_LRM;
 
 const repeat_rate = 25;
@@ -38,76 +37,131 @@ const builtin = @import("builtin");
 pub const useclib = true;
 
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
-pub const allocator = if (builtin.is_test) std.testing.allocator else if (!builtin.link_libc or !useclib) gpa.allocator() else std.heap.c_allocator;
+pub const allocator = gpa.allocator();
 
-const monrules = [_]MonitorRule{
-    .{ .name = "eDP-1", .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 0, .y = 0 },
-    .{ .name = "DP-1", .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = 2560, .y = 0 },
-    // .{ .name = null,  .scale = 1, .lt = &layouts[0], .rr = c.WL_OUTPUT_TRANSFORM_NORMAL, .x = -1, .y = -1 },
+//const rules = [_]Rule{
+//    .{ .isfloating = true, .center = true },
+//    .{ .id = "kittyA", .container = 1 },
+//    .{ .id = "kittyB", .container = 2 },
+//    .{ .id = "discord", .container = 3 },
+//    .{ .id = "htop", .container = 1 },
+//    .{ .id = "Sxiv", .container = 2 },
+//    .{ .id = "chromium", .container = 3 },
+//    .{ .id = "Pavucontrol", .container = 2 },
+//    .{ .id = "Code - Insiders", .container = 3 },
+//    .{ .id = "neovide", .container = 3 },
+//    .{ .id = "cava", .container = 4 },
+//};
+
+pub const ContainersB = Container{
+    .name = "ABCD",
+    .x_start = 0.00,
+    .y_start = 0.00,
+    .x_end = 1.00,
+    .y_end = 1.00,
+    .ids = &.{ 1, 2, 3, 4 },
+    .children = &.{
+        .{
+            .name = "AC",
+            .x_start = 0.00,
+            .y_start = 0.00,
+            .x_end = 0.70,
+            .y_end = 1.00,
+            .ids = &.{ 1, 3 },
+            .children = &.{
+                .{
+                    .name = "A",
+                    .x_start = 0.00,
+                    .y_start = 0.00,
+                    .x_end = 1.00,
+                    .y_end = 0.20,
+                    .ids = &.{1},
+                    .children = &.{},
+                },
+                .{
+                    .name = "C",
+                    .x_start = 0.00,
+                    .y_start = 0.20,
+                    .x_end = 1.00,
+                    .y_end = 1.00,
+                    .ids = &.{3},
+                    .children = &.{},
+                },
+            },
+        },
+        .{
+            .name = "BD",
+            .x_start = 0.70,
+            .y_start = 0.00,
+            .x_end = 1.00,
+            .y_end = 1.00,
+            .ids = &.{ 2, 4 },
+            .children = &.{
+                .{
+                    .name = "B",
+                    .x_start = 0.00,
+                    .y_start = 0.00,
+                    .x_end = 1.00,
+                    .y_end = 0.50,
+                    .ids = &.{2},
+                    .children = &.{},
+                },
+                .{
+                    .name = "D",
+                    .x_start = 0.00,
+                    .y_start = 0.50,
+                    .x_end = 1.00,
+                    .y_end = 1.00,
+                    .ids = &.{4},
+                    .children = &.{},
+                },
+            },
+        },
+    },
 };
 
-const rules = [_]Rule{
-    .{ .isfloating = true },
-    .{ .id = "kittyA", .container = 1 },
-    .{ .id = "kittyB", .container = 2 },
-    .{ .id = "discord", .container = 3 },
-    .{ .id = "htop", .container = 1 },
-    .{ .id = "Sxiv", .container = 2 },
-    .{ .id = "firefox", .container = 3 },
-    .{ .id = "Pavucontrol", .container = 2 },
-    .{ .id = "Code - Insiders", .container = 3 },
-    .{ .id = "cava", .container = 4 },
-};
+//const keys = [_]Key{
+//    // terminals
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "--class=kittyA" } } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "--class=kittyB" } } },
+//
+//    // terminal apps
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_i, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "-e", "htop" } } },
+//
+//    // gui apps
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/chromium"} } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &MENUCMD } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_b, .func = spawn, .arg = .{ .v = &.{ "/usr/local/bin/dwlb", "-toggle-visibility", "selected" } } },
+//
+//    // misc
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .func = quit, .arg = .{ .i = 0 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_numbersign, .func = setcon, .arg = .{ .ui = 3 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_dollar, .func = setcon, .arg = .{ .ui = 4 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = 1 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = -1 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = .{ .i = 0 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_h, .func = cyclelayout, .arg = .{ .i = 1 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_H, .func = cyclelayout, .arg = .{ .i = -1 } },
+//
+//    // tags
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F2, .func = view, .arg = .{ .ui = 1 << 1 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F2, .func = tag, .arg = .{ .ui = 1 << 1 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F3, .func = view, .arg = .{ .ui = 1 << 2 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F3, .func = tag, .arg = .{ .ui = 1 << 2 } },
+//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F4, .func = view, .arg = .{ .ui = 1 << 3 } },
+//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F4, .func = tag, .arg = .{ .ui = 1 << 3 } },
+//};
 
-const layouts = [_]Layout{
-    .{ .symbol = "---", .arrange = bud },
-    .{ .symbol = "[+]", .arrange = budgaps },
-};
-
-const MODKEY = c.WLR_MODIFIER_LOGO;
-// const MODKEY = c.WLR_MODIFIER_ALT;
-
-const MENUCMD = .{ "/usr/bin/bemenu-run", "--fn", "CaskaydiaCovePL Nerd Font", "-H", "22", "--ab", "#262322", "--af", "#755e4a", "--nb", "#262322", "--nf", "#755e4a", "--hb", "#a86441", "--hf", "#daba8b" };
-
-const keys = [_]Key{
-    // terminals
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/kitty", "--class=kittyA" } } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/kitty", "--class=kittyB" } } },
-
-    // gui apps
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/firefox"} } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &MENUCMD } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_b, .func = spawn, .arg = .{ .v = &.{ "/usr/local/bin/dwlb", "-toggle-visibility", "selected" } } },
-
-    // misc
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .func = quit, .arg = .{ .i = 0 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_numbersign, .func = setcon, .arg = .{ .ui = 3 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_dollar, .func = setcon, .arg = .{ .ui = 4 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = 1 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = -1 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = .{ .i = 0 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_h, .func = cyclelayout, .arg = .{ .i = 1 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_H, .func = cyclelayout, .arg = .{ .i = -1 } },
-
-    // tags
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F2, .func = view, .arg = .{ .ui = 1 << 1 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F2, .func = tag, .arg = .{ .ui = 1 << 1 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F3, .func = view, .arg = .{ .ui = 1 << 2 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F3, .func = tag, .arg = .{ .ui = 1 << 2 } },
-    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F4, .func = view, .arg = .{ .ui = 1 << 3 } },
-    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F4, .func = tag, .arg = .{ .ui = 1 << 3 } },
-};
-
-const buttons = [_]Button{
-    .{ .mod = MODKEY, .button = c.BTN_LEFT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurMove) } },
-    .{ .mod = MODKEY, .button = c.BTN_RIGHT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurResize) } },
-};
+//const buttons = [_]Button{
+//    .{ .mod = MODKEY, .button = c.BTN_LEFT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurMove) } },
+//    .{ .mod = MODKEY, .button = c.BTN_RIGHT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurResize) } },
+//};
 
 const Cursors = enum {
     CurNormal,
@@ -143,49 +197,42 @@ const Atoms = enum(usize) {
     NetWMWindowTypeUtility,
 };
 
-const Button = struct {
-    mod: u32 = 0,
-    button: u32,
-    func: ?*const fn (*const Arg) void = null,
-    arg: ?Arg = null,
-};
+const Container = struct {
+    x_start: f32,
+    y_start: f32,
+    x_end: f32,
+    y_end: f32,
+    children: []const Container,
+    name: []const u8,
+    ids: []const u8,
 
-const Key = struct {
-    mod: u32 = 0,
-    keysym: c.xkb_keysym_t,
-    func: ?*const fn (*const Arg) void = null,
-    arg: ?Arg = null,
-};
+    fn getBounds(self: *const Container, screen: c.wlr_box) c.wlr_box {
+        var result: c.wlr_box = undefined;
 
-const Arg = union {
-    i: i32,
-    ui: u32,
-    f: f32,
-    v: []const []const u8,
-};
+        result.x = screen.x + if (self.x_start <= 1.0)
+            @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_start)
+        else
+            @floatToInt(c_int, self.x_start);
 
-const Rule = struct {
-    id: ?[]const u8 = null,
-    title: ?[]const u8 = null,
-    tags: u32 = 0,
-    container: u8 = 0,
-    isfloating: bool = false,
-    monitor: i32 = -1,
-};
+        result.width = screen.x + if (self.x_end <= 1.0)
+            @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_end)
+        else
+            @floatToInt(c_int, self.x_end);
+        result.width -= result.x;
 
-const MonitorRule = struct {
-    name: ?[:0]const u8,
-    scale: f32,
-    lt: *const Layout,
-    rr: c.wl_output_transform,
-    x: i32,
-    y: i32,
-};
+        result.y = screen.y + if (self.y_start <= 1.0)
+            @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_start)
+        else
+            @floatToInt(c_int, self.y_start);
 
-const Layout = struct {
-    symbol: []const u8,
+        result.height = screen.y + if (self.y_end <= 1.0)
+            @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_end)
+        else
+            @floatToInt(c_int, self.y_end);
+        result.height -= result.y;
 
-    arrange: ?*const fn (*Monitor) void,
+        return result;
+    }
 };
 
 const LayerSurface = struct {
@@ -205,7 +252,7 @@ const LayerSurface = struct {
     surface_commit: c.wl_listener,
 };
 
-const Monitor = struct {
+pub const Monitor = struct {
     output: *c.wlr_output,
     scene_output: *c.wlr_scene_output,
     fullscreen_bg: *c.wlr_scene_rect,
@@ -220,7 +267,7 @@ const Monitor = struct {
     w: c.wlr_box,
 
     layers: [4]std.ArrayList(*LayerSurface),
-    lt: [2]*const Layout,
+    lt: [2]*const cfg.Config.Layout,
 
     seltags: u32,
     sellt: u32,
@@ -261,6 +308,7 @@ const Client = struct {
     isfloating: bool,
     isurgent: bool,
     isfullscreen: bool,
+    iscentered: bool,
     resize: u32,
 
     container: u8,
@@ -344,117 +392,73 @@ var start_drag: c.wl_listener = .{ .link = undefined, .notify = startdrag };
 var drag_icon_destroy: c.wl_listener = .{ .link = undefined, .notify = destroydragicon };
 var output_mgr_apply: c.wl_listener = .{ .link = undefined, .notify = outputmgrapply };
 
-pub fn bud(mon: *Monitor) void {
-    var containers: [4]bool = .{ false, false, false, false };
+pub fn bud(comptime igapps: i32, comptime ogapps: i32, comptime containers: *const Container) (fn (*Monitor) void) {
+    return struct {
+        pub fn getSizeInContainer(target: u8, currentSize: c.wlr_box, container: *const Container, usage: [containers.ids.len]bool) c.wlr_box {
+            var result = currentSize;
+            if (container.ids.len == 1 and container.ids[0] == target) return result;
 
-    for (clients.items) |client| {
-        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-            if (client.container == 0) {
-                client.container = 3;
+            var childrenUsed: u8 = 0;
+            var idsUsed: u8 = 0;
+            for (container.ids) |id| {
+                if (usage[id - 1]) idsUsed += 1;
             }
-            if (!client.isfloating and !client.isfullscreen)
-                containers[client.container - 1] = true;
-        }
-    }
 
-    var acsplitn: i32 = acsplit;
-    if (acsplitn < 0)
-        acsplitn += mon.w.height;
-    acsplitn -= (16);
-    var bdsplitn: i32 = bdsplit;
-    if (bdsplitn < 0)
-        bdsplitn += mon.w.height;
-    var absplitn: i32 = absplit;
-    if (absplitn < 0)
-        absplitn += mon.w.width;
-    var basplit = (mon.w.width - absplitn);
-
-    for (clients.items) |client| {
-        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-            if (client.isfloating or client.isfullscreen) continue;
-
-            var new = mon.w;
-            if (client.container == 1) {
-                if (containers[2]) new.height = acsplitn;
-                if (containers[1] or containers[3]) new.width = new.width - basplit;
-            } else if (client.container == 2) {
-                if (containers[0] or containers[2]) new.x = new.x + absplitn;
-                if (containers[0] or containers[2]) new.width = basplit;
-                if (containers[3]) new.height = bdsplitn;
-            } else if (client.container == 3) {
-                if (containers[1] or containers[3]) new.width = new.width - basplit;
-                if (containers[0]) new.height = new.height - acsplitn;
-                if (containers[0]) new.y = new.y + acsplitn;
-            } else if (client.container == 4) {
-                if (containers[0] or containers[2]) new.x = new.x + absplitn;
-                if (containers[0] or containers[2]) new.width = basplit;
-                if (containers[1]) new.height = new.height - bdsplitn;
-                if (containers[1]) new.y = new.y + bdsplitn;
+            for (container.children) |child| {
+                var good: bool = false;
+                for (child.ids) |id| {
+                    if (usage[id - 1]) {
+                        good = true;
+                    }
+                }
+                if (good)
+                    childrenUsed += 1;
             }
-            resize(client, new, false);
-        }
-    }
-}
 
-pub fn budgaps(mon: *Monitor) void {
-    var containers: [4]bool = .{ false, false, false, false };
-
-    for (clients.items) |client| {
-        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-            if (client.container == 0) {
-                client.container = 3;
+            if (idsUsed == 1) return result;
+            for (container.children) |*child| {
+                if (std.mem.containsAtLeast(u8, child.ids, 1, &.{target})) {
+                    if (childrenUsed != 1)
+                        result = child.getBounds(result);
+                    return getSizeInContainer(target, result, child, usage);
+                }
             }
-            if (!client.isfloating and !client.isfullscreen)
-                containers[client.container - 1] = true;
+
+            unreachable;
         }
-    }
 
-    var acsplitn: i32 = acsplit;
-    if (acsplitn < 0)
-        acsplitn += mon.w.height;
-    acsplitn -= (16);
-    var bdsplitn: i32 = bdsplit;
-    if (bdsplitn < 0)
-        bdsplitn += mon.w.height;
-    var absplitn: i32 = absplit;
-    if (absplitn < 0)
-        absplitn += mon.w.width;
-    var basplit = (mon.w.width - absplitn);
+        pub fn budImpl(mon: *Monitor) void {
+            var containerUsage = [_]bool{false} ** containers.ids.len;
 
-    for (clients.items) |client| {
-        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-            if (client.isfloating or client.isfullscreen) continue;
-            var new = mon.w;
-            new.x += gappso;
-            new.y += gappso;
-            new.width -= gappso;
-            new.height -= gappso;
-            if (client.container == 1) {
-                if (containers[2]) new.height = acsplitn - gappsi;
-                if (containers[1] or containers[3]) new.width = new.width - acsplitn - gappsi;
-                new.width = new.width - gappso;
-                if (!containers[2]) new.height = new.height - gappso;
-            } else if (client.container == 2) {
-                if (containers[0] or containers[2]) new.x = new.x + absplitn - gappso;
-                if (containers[0] or containers[2]) new.width = basplit - gappso else new.width = new.width - gappso;
-                if (containers[3]) new.height = bdsplitn - gappsi;
-                if (!containers[3]) new.height = new.height - gappso;
-            } else if (client.container == 3) {
-                if (containers[1] or containers[3]) new.width = new.width - basplit - gappsi;
-                new.width = new.width - gappso;
-                if (containers[0]) new.height = new.height - acsplitn - gappsi;
-                new.height = new.height - gappso;
-                if (containers[0]) new.y = new.y + acsplitn - gappsi;
-            } else if (client.container == 4) {
-                if (containers[0] or containers[2]) new.x = new.x + absplitn - gappso;
-                if (containers[0] or containers[2]) new.width = basplit - gappso else new.width = new.width - gappso;
-                if (containers[1]) new.height = new.height - bdsplitn - gappsi;
-                new.height = new.height - gappso;
-                if (containers[1]) new.y = new.y + bdsplitn + gappsi;
+            for (clients.items) |client| {
+                if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
+                    if (client.container == 0) {
+                        client.container = 1;
+                    }
+
+                    if (!client.isfloating and !client.isfullscreen)
+                        containerUsage[client.container - 1] = true;
+                }
             }
-            resize(client, new, false);
+
+            var win = mon.w;
+            win.x += ogapps;
+            win.y += ogapps;
+            win.width -= ogapps * 2;
+            win.height -= ogapps * 2;
+
+            for (clients.items) |client| {
+                if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and (!client.isfloating and !client.isfullscreen)) {
+                    var new = getSizeInContainer(client.container, win, containers, containerUsage);
+                    new.x += igapps;
+                    new.y += igapps;
+                    new.width -= igapps * 2;
+                    new.height -= igapps * 2;
+                    resize(client, new, false);
+                }
+            }
         }
-    }
+    }.budImpl;
 }
 
 pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
@@ -703,6 +707,7 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
 
     if (client != null and lift)
         c.wlr_scene_node_raise_to_top(&client.?.scene.node);
+
     if (client != null and client_surface(client.?) == old)
         return;
 
@@ -1099,7 +1104,7 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
         .fullscreen_bg = undefined,
         .ltsymbol = &bad,
         .layers = undefined,
-        .lt = undefined,
+        .lt = .{ &configData.layouts[0], &configData.layouts[0] },
     });
     wlr_output.data = m;
 
@@ -1110,12 +1115,10 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     }
     m.tagset[0] = 1;
     m.tagset[1] = 1;
-    for (monrules) |r| {
+    for (configData.monrules) |r| {
         if (r.name == null or c.strcmp(wlr_output.name, r.name.?) != 0) {
             c.wlr_output_set_scale(wlr_output, r.scale);
             _ = c.wlr_xcursor_manager_load(cursor_mgr, r.scale);
-            m.lt[0] = r.lt;
-            m.lt[1] = r.lt;
             c.wlr_output_set_transform(wlr_output, r.rr);
             m.m.x = r.x;
             m.m.y = r.y;
@@ -1496,9 +1499,10 @@ pub fn applyrules(client: *Client) void {
     var appid = client_get_appid(client) orelse "broken";
     var title = client_get_title(client) orelse "broken";
 
-    for (rules) |r| {
+    for (configData.rules) |r| {
         if ((r.id == null or std.mem.eql(u8, appid, r.id.?)) and (r.title == null or std.mem.eql(u8, title, r.title.?))) {
             client.isfloating = r.isfloating;
+            client.iscentered = r.center;
             client.container = r.container;
             newtags |= r.tags;
             for (mons, 0..) |m, idx| {
@@ -1507,6 +1511,11 @@ pub fn applyrules(client: *Client) void {
                 }
             }
         }
+    }
+
+    if (client.iscentered) {
+        client.geom.x = @divFloor(mon.?.w.width - client.geom.width, 2) + mon.?.m.x;
+        client.geom.y = @divFloor(mon.?.w.height - client.geom.height, 2) + mon.?.m.y;
     }
 
     c.wlr_scene_node_reparent(&client.scene.node, layers.get(if (client.isfloating) .LyrFloat else .LyrTile));
@@ -1880,9 +1889,9 @@ pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
             var keyboard = c.wlr_seat_get_keyboard(seat);
             var mods = if (keyboard != null) c.wlr_keyboard_get_modifiers(keyboard) else 0;
 
-            for (buttons) |b| {
-                if (cleanmask(mods) == cleanmask(b.mod) and event.button == b.button and b.func != null) {
-                    b.func.?(&b.arg.?);
+            for (configData.buttons) |b| {
+                if (cleanmask(mods) == cleanmask(b.mod) and event.button == b.button) {
+                    b.cmd.run();
                     return;
                 }
             }
@@ -1990,11 +1999,11 @@ pub inline fn cleanmask(mask: u32) u32 {
 
 pub fn keybinding(mods: u32, sym: c.xkb_keysym_t) bool {
     var handled = false;
-    for (keys) |k| {
+    for (configData.keys) |k| {
         if (cleanmask(mods) == cleanmask(k.mod) and
-            sym == k.keysym and k.func != null)
+            sym == k.keysym)
         {
-            k.func.?(&k.arg.?);
+            k.cmd.run();
             handled = true;
         }
     }
@@ -2022,15 +2031,15 @@ pub fn client_send_close(client: *Client) void {
     c.wlr_xdg_toplevel_send_close(client.surface.xdg.unnamed_0.toplevel);
 }
 
-pub fn spawn(arg: *const Arg) void {
+pub fn spawn(arg: *const cfg.Config.Arg) void {
     var proc = std.ChildProcess.init(arg.v, allocator);
 
     proc.spawn() catch return;
 }
 
-pub fn setlayout(arg: *const Arg) void {
+pub fn setlayout(arg: *const cfg.Config.Arg) void {
     if (selmon == null) return;
-    var lt = &layouts[@intCast(usize, arg.i)];
+    var lt = &configData.layouts[@intCast(usize, arg.i)];
 
     if (lt != selmon.?.lt[selmon.?.sellt])
         selmon.?.sellt ^= 1;
@@ -2040,19 +2049,19 @@ pub fn setlayout(arg: *const Arg) void {
     printstatus();
 }
 
-pub fn cyclelayout(arg: *const Arg) void {
-    for (layouts, 0..) |_, idx| {
-        if (&layouts[idx] == selmon.?.lt[selmon.?.sellt]) {
+pub fn cyclelayout(arg: *const cfg.Config.Arg) void {
+    for (configData.layouts, 0..) |_, idx| {
+        if (&configData.layouts[idx] == selmon.?.lt[selmon.?.sellt]) {
             var i = @intCast(i32, idx);
             i += arg.i;
-            i = @mod(i, @intCast(i32, layouts.len));
+            i = @mod(i, @intCast(i32, configData.layouts.len));
             setlayout(&.{ .i = i });
             return;
         }
     }
 }
 
-pub fn view(arg: *const Arg) void {
+pub fn view(arg: *const cfg.Config.Arg) void {
     if (selmon == null or (arg.ui & TAGMASK) == selmon.?.tagset[selmon.?.seltags])
         return;
     selmon.?.seltags ^= 1;
@@ -2063,7 +2072,7 @@ pub fn view(arg: *const Arg) void {
     printstatus();
 }
 
-pub fn tag(arg: *const Arg) void {
+pub fn tag(arg: *const cfg.Config.Arg) void {
     if (focustop(selmon)) |sel| {
         if ((arg.ui & TAGMASK) != 0) {
             sel.tags = arg.ui & TAGMASK;
@@ -2074,28 +2083,28 @@ pub fn tag(arg: *const Arg) void {
     printstatus();
 }
 
-pub fn togglefloating(arg: *const Arg) void {
+pub fn togglefloating(arg: *const cfg.Config.Arg) void {
     _ = arg;
     var sel = focustop(selmon);
     if (sel != null)
         setfloating(sel.?, !sel.?.isfloating);
 }
 
-pub fn togglefullscreen(arg: *const Arg) void {
+pub fn togglefullscreen(arg: *const cfg.Config.Arg) void {
     _ = arg;
     var sel = focustop(selmon);
     if (sel != null)
         setfullscreen(sel.?, !sel.?.isfullscreen);
 }
 
-pub fn killclient(arg: *const Arg) void {
+pub fn killclient(arg: *const cfg.Config.Arg) void {
     _ = arg;
     var sel = focustop(selmon);
     if (sel != null)
         client_send_close(sel.?);
 }
 
-pub fn focusstack(arg: *const Arg) void {
+pub fn focusstack(arg: *const cfg.Config.Arg) void {
     var sel = focustop(selmon);
     if (sel) |selmonsel| {
         var targ = selmonsel.container;
@@ -2115,7 +2124,7 @@ pub fn focusstack(arg: *const Arg) void {
     }
 }
 
-pub fn moveresize(arg: *const Arg) void {
+pub fn moveresize(arg: *const cfg.Config.Arg) void {
     if (cursor_mode != .CurNormal and cursor_mode != .CurPressed)
         return;
     _ = xytonode(cursor.x, cursor.y, null, &grabc, null, null, null);
@@ -2144,7 +2153,7 @@ pub fn moveresize(arg: *const Arg) void {
     }
 }
 
-pub fn setcon(arg: *const Arg) void {
+pub fn setcon(arg: *const cfg.Config.Arg) void {
     var sel = focustop(selmon);
     if (sel != null) {
         sel.?.container = @intCast(u8, arg.ui);
@@ -2154,7 +2163,8 @@ pub fn setcon(arg: *const Arg) void {
     }
 }
 
-pub fn quit(_: *const Arg) void {
+pub fn quit(_: *const cfg.Config.Arg) void {
+    std.log.info("poopie", .{});
     c.wl_display_terminate(dpy);
 }
 
@@ -2186,8 +2196,6 @@ pub fn createkeyboard(keyboard: *c.wlr_keyboard) void {
 
     // setup keypress stuff
     c.wlr_seat_set_keyboard(seat, keyboard);
-
-    std.log.info("lol", .{});
 
     kb.key_repeat_source = c.wl_event_loop_add_timer(c.wl_display_get_event_loop(dpy), keyrepeat, kb);
 
@@ -2271,6 +2279,8 @@ pub fn xwaylandready(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
 }
 
 pub fn setup() !void {
+    configData = try cfg.Config.source(".config/budland/budland.conf", allocator);
+
     dpy = c.wl_display_create() orelse {
         return error.WaylandFailed;
     };
@@ -2460,6 +2470,10 @@ pub fn run(startup_cmd: ?[]const u8) !void {
 
     printstatus();
 
+    for (configData.autoexec) |exec| {
+        exec.cmd.run();
+    }
+
     selmon = xytomon(cursor.x, cursor.y);
 
     c.wlr_cursor_warp_closest(cursor, null, cursor.x, cursor.y);
@@ -2469,6 +2483,11 @@ pub fn run(startup_cmd: ?[]const u8) !void {
 }
 
 pub fn cleanup() !void {
+    if (true) {
+        std.debug.assert(gpa.deinit() == .ok);
+        std.log.debug("no leaks! :)", .{});
+    }
+
     c.wlr_xwayland_destroy(xwayland);
     c.wl_display_destroy_clients(dpy);
     if (child_pid > 0) {
@@ -2487,6 +2506,6 @@ pub fn cleanup() !void {
 
 pub fn main() !void {
     try setup();
-    try run("dwlb -font \"CaskaydiaCovePL Nerd Font:size=16\"");
+    try run(null);
     try cleanup();
 }
