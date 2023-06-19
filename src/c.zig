@@ -48,4 +48,5 @@ pub usingnamespace @cImport({
     @cInclude("sys/wait.h");
     @cInclude("unistd.h");
     @cInclude("wlr-layer-shell-unstable-v1-protocol.h");
+    @cInclude("dwl-ipc-unstable-v2-protocol.h");
 });

@@ -96,6 +96,38 @@ pub const Config = struct {
             return .{
                 .func = main.killclient,
             };
+        } else if (std.mem.eql(u8, cmd, "reload")) {
+            return .{
+                .func = main.reload,
+            };
+        } else if (std.mem.eql(u8, cmd, "resize")) {
+            return .{
+                .func = main.moveresize,
+                .arg = .{ .ui = @enumToInt(main.Cursors.CurResize) },
+            };
+        } else if (std.mem.eql(u8, cmd, "move")) {
+            return .{
+                .func = main.moveresize,
+                .arg = .{ .ui = @enumToInt(main.Cursors.CurMove) },
+            };
+        } else if (std.mem.eql(u8, cmd, "fullscreen")) {
+            return .{
+                .func = main.togglefullscreen,
+            };
+        } else if (std.mem.eql(u8, cmd, "togglefloating")) {
+            return .{
+                .func = main.togglefloating,
+            };
+        } else if (std.mem.eql(u8, cmd, "cyclelayout")) {
+            return .{
+                .func = main.cyclelayout,
+                .arg = .{ .i = try std.fmt.parseInt(i32, iter.next() orelse "0", 0) },
+            };
+        } else if (std.mem.eql(u8, cmd, "sendcon")) {
+            return .{
+                .func = main.setcon,
+                .arg = .{ .ui = try std.fmt.parseInt(u32, iter.next() orelse "0", 0) },
+            };
         } else if (std.mem.eql(u8, cmd, "focusstack")) {
             return .{
                 .func = main.focusstack,
@@ -110,6 +142,33 @@ pub const Config = struct {
         keysym: c.xkb_keysym_t,
         mod: u32 = 0,
     };
+
+    pub fn getMouse(code: []const u8) !KeyData {
+        var iter = std.mem.split(u8, code, "+");
+        var result: KeyData = .{
+            .keysym = 0,
+            .mod = 0,
+        };
+
+        while (iter.next()) |key| {
+            if (std.mem.eql(u8, key, "LOGO")) {
+                result.mod |= c.WLR_MODIFIER_LOGO;
+            } else if (std.mem.eql(u8, key, "SHIFT")) {
+                result.mod |= c.WLR_MODIFIER_SHIFT;
+            } else if (std.mem.eql(u8, key, "ALT")) {
+                result.mod |= c.WLR_MODIFIER_ALT;
+            } else if (std.mem.eql(u8, key, "Left")) {
+                result.keysym = c.BTN_LEFT;
+            } else if (std.mem.eql(u8, key, "Right")) {
+                result.keysym = c.BTN_RIGHT;
+            } else {
+                std.log.info("{s}", .{key});
+                return error.InvalidKey;
+            }
+        }
+
+        return result;
+    }
 
     pub fn getKey(code: []const u8) !KeyData {
         var iter = std.mem.split(u8, code, "+");
@@ -127,6 +186,8 @@ pub const Config = struct {
                 result.mod |= c.WLR_MODIFIER_ALT;
             } else if (std.mem.eql(u8, key, "Tab")) {
                 result.keysym = c.XKB_KEY_Tab;
+            } else if (std.mem.eql(u8, key, "Space")) {
+                result.keysym = c.XKB_KEY_space;
             } else if (std.mem.eql(u8, key, "Return")) {
                 result.keysym = c.XKB_KEY_Return;
             } else if (key.len == 1) {
@@ -180,11 +241,41 @@ pub const Config = struct {
                         .keysym = key.keysym,
                         .cmd = command,
                     };
+                } else if (std.mem.eql(u8, cmd, "mouse")) {
+                    var binds = splitIter.next() orelse return error.NoCommand;
+                    var command = try toCommand(&splitIter, allocator);
+                    var key = try getMouse(binds);
+                    result.buttons = try allocator.realloc(result.buttons, result.buttons.len + 1);
+                    result.buttons[result.buttons.len - 1] = .{
+                        .mod = key.mod,
+                        .button = key.keysym,
+                        .cmd = command,
+                    };
                 } else if (std.mem.eql(u8, cmd, "autoexec")) {
                     var command = try toCommand(&splitIter, allocator);
                     result.autoexec = try allocator.realloc(result.autoexec, result.autoexec.len + 1);
                     result.autoexec[result.autoexec.len - 1] = .{
                         .cmd = command,
+                    };
+                } else if (std.mem.eql(u8, cmd, "rule")) {
+                    var id: ?[]const u8 = splitIter.next() orelse return error.NoCommand;
+                    if (std.mem.eql(u8, id.?, "_")) id = null;
+                    var title: ?[]const u8 = splitIter.next() orelse return error.NoCommand;
+                    if (std.mem.eql(u8, title.?, "_")) title = null;
+                    var tags = try std.fmt.parseInt(u32, splitIter.next() orelse "0", 0);
+                    var container = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
+                    var center = std.ascii.eqlIgnoreCase("true", splitIter.next() orelse return error.NoCommand);
+                    var floating = std.ascii.eqlIgnoreCase("true", splitIter.next() orelse return error.NoCommand);
+                    var monitor = try std.fmt.parseInt(i32, splitIter.next() orelse "0", 0);
+                    result.rules = try allocator.realloc(result.rules, result.rules.len + 1);
+                    result.rules[result.rules.len - 1] = .{
+                        .id = if (id) |i| try allocator.dupe(u8, i) else null,
+                        .title = if (title) |i| try allocator.dupe(u8, i) else null,
+                        .tags = tags,
+                        .container = container,
+                        .center = center,
+                        .isfloating = floating,
+                        .monitor = monitor,
                     };
                 } else if (std.mem.eql(u8, cmd, "monitor")) {
                     var name = try allocator.dupeZ(u8, splitIter.next() orelse return error.NoCommand);

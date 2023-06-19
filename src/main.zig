@@ -1,17 +1,18 @@
 const std = @import("std");
 const c = @import("c.zig");
 const cfg = @import("config.zig");
+const ipc = @import("ipc.zig");
 
-var configData: cfg.Config = undefined;
+pub var configData: cfg.Config = undefined;
 
 const sloppyfocus: bool = true;
-const bypass_surface_visibility: bool = false;
+const bypass_surface_visibility: bool = true;
 const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
 const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
 
-const tagcount = 4;
+pub const tagcount = 4;
 
 const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
 
@@ -38,20 +39,6 @@ pub const useclib = true;
 
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
-
-//const rules = [_]Rule{
-//    .{ .isfloating = true, .center = true },
-//    .{ .id = "kittyA", .container = 1 },
-//    .{ .id = "kittyB", .container = 2 },
-//    .{ .id = "discord", .container = 3 },
-//    .{ .id = "htop", .container = 1 },
-//    .{ .id = "Sxiv", .container = 2 },
-//    .{ .id = "chromium", .container = 3 },
-//    .{ .id = "Pavucontrol", .container = 2 },
-//    .{ .id = "Code - Insiders", .container = 3 },
-//    .{ .id = "neovide", .container = 3 },
-//    .{ .id = "cava", .container = 4 },
-//};
 
 pub const ContainersB = Container{
     .name = "ABCD",
@@ -102,14 +89,14 @@ pub const ContainersB = Container{
                     .x_start = 0.00,
                     .y_start = 0.00,
                     .x_end = 1.00,
-                    .y_end = 0.50,
+                    .y_end = 0.40,
                     .ids = &.{2},
                     .children = &.{},
                 },
                 .{
                     .name = "D",
                     .x_start = 0.00,
-                    .y_start = 0.50,
+                    .y_start = 0.40,
                     .x_end = 1.00,
                     .y_end = 1.00,
                     .ids = &.{4},
@@ -120,28 +107,11 @@ pub const ContainersB = Container{
     },
 };
 
-//const keys = [_]Key{
-//    // terminals
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "--class=kittyA" } } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Return, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "--class=kittyB" } } },
-//
-//    // terminal apps
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_i, .func = spawn, .arg = .{ .v = &.{ "/usr/bin/alacritty", "-e", "htop" } } },
-//
-//    // gui apps
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_w, .func = spawn, .arg = .{ .v = &.{"/usr/bin/chromium"} } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_d, .func = spawn, .arg = .{ .v = &MENUCMD } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_b, .func = spawn, .arg = .{ .v = &.{ "/usr/local/bin/dwlb", "-toggle-visibility", "selected" } } },
-//
 //    // misc
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .func = quit, .arg = .{ .i = 0 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_numbersign, .func = setcon, .arg = .{ .ui = 3 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_dollar, .func = setcon, .arg = .{ .ui = 4 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = 1 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Tab, .func = focusstack, .arg = .{ .i = -1 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_q, .func = killclient, .arg = .{ .i = 0 } },
 //    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
 //    .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
 //    .{ .mod = MODKEY, .keysym = c.XKB_KEY_h, .func = cyclelayout, .arg = .{ .i = 1 } },
@@ -158,12 +128,7 @@ pub const ContainersB = Container{
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F4, .func = tag, .arg = .{ .ui = 1 << 3 } },
 //};
 
-//const buttons = [_]Button{
-//    .{ .mod = MODKEY, .button = c.BTN_LEFT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurMove) } },
-//    .{ .mod = MODKEY, .button = c.BTN_RIGHT, .func = moveresize, .arg = .{ .ui = @enumToInt(Cursors.CurResize) } },
-//};
-
-const Cursors = enum {
+pub const Cursors = enum {
     CurNormal,
     CurPressed,
     CurMove,
@@ -275,6 +240,8 @@ pub const Monitor = struct {
     tagset: [2]u32,
 
     ltsymbol: *const []const u8,
+
+    ipc_outputs: []*ipc.IpcOutput,
 };
 
 const Client = struct {
@@ -357,13 +324,13 @@ var cursor_image: ?[]const u8 = "left_ptr\x00";
 
 var layers: std.EnumArray(Layer, *c.wlr_scene_tree) = undefined;
 
-var mons: []*Monitor = undefined;
-var clients: std.ArrayList(*Client) = undefined;
+pub var mons: []*Monitor = undefined;
+pub var clients: std.ArrayList(*Client) = undefined;
 var fstack: std.ArrayList(*Client) = undefined;
 var keyboards: std.ArrayList(*Keyboard) = undefined;
 var sgeom: c.wlr_box = undefined;
 
-var selmon: ?*Monitor = null;
+pub var selmon: ?*Monitor = null;
 
 var child_pid: i32 = -1;
 var locked: bool = false;
@@ -685,6 +652,7 @@ pub fn arrangelayers(m: *Monitor) void {
                 focusclient(null, false);
                 exclusive_focus = @ptrToInt(layersurface);
                 client_notify_enter(layersurface.layer_surface.surface, c.wlr_seat_get_keyboard(seat));
+                return;
             }
         }
     }
@@ -1108,6 +1076,8 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     });
     wlr_output.data = m;
 
+    m.ipc_outputs = allocator.alloc(*ipc.IpcOutput, 0) catch unreachable;
+
     _ = c.wlr_output_init_render(wlr_output, alloc, drw);
 
     for (&m.layers) |*layer| {
@@ -1213,7 +1183,32 @@ pub fn client_is_stopped(client: *Client) bool {
 
 pub fn cleanupmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
-    _ = listener;
+
+    var mon: *Monitor = undefined;
+    mon = c.wl_container_of(listener, mon, "destroy");
+
+    for (mon.layers) |layer|
+        for (layer.items) |subLayer|
+            c.wlr_layer_surface_v1_destroy(subLayer.layer_surface);
+
+    for (mon.ipc_outputs) |ipc_output| {
+        c.wl_resource_destroy(ipc_output.resource);
+    }
+
+    c.wl_list_remove(&mon.destroy.link);
+    c.wl_list_remove(&mon.frame.link);
+
+    const idx = std.mem.indexOf(*Monitor, mons, &.{mon}) orelse unreachable;
+    @memcpy(mons[idx .. mons.len - 1], mons[idx + 1 ..]);
+    mons = allocator.realloc(mons, mons.len - 1) catch unreachable;
+    mon.output.data = null;
+    c.wlr_output_layout_remove(output_layout, mon.output);
+    c.wlr_scene_output_destroy(mon.scene_output);
+    c.wlr_scene_node_destroy(&mon.fullscreen_bg.node);
+
+    closemon(mon);
+
+    allocator.destroy(mon);
 }
 
 pub fn createidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1500,6 +1495,7 @@ pub fn applyrules(client: *Client) void {
     var title = client_get_title(client) orelse "broken";
 
     for (configData.rules) |r| {
+        std.log.info("{any}", .{r});
         if ((r.id == null or std.mem.eql(u8, appid, r.id.?)) and (r.title == null or std.mem.eql(u8, title, r.title.?))) {
             client.isfloating = r.isfloating;
             client.iscentered = r.center;
@@ -1510,6 +1506,7 @@ pub fn applyrules(client: *Client) void {
                     mon = m;
                 }
             }
+            std.log.info("{?s}, {?s}", .{ r.id, r.title });
         }
     }
 
@@ -1609,6 +1606,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
         _ = fstack.orderedRemove(fidx);
     }
 
+    c.wl_list_remove(&client.commit.link);
     c.wlr_scene_node_destroy(&client.scene.node);
     printstatus();
     motionnotify(0);
@@ -2097,6 +2095,11 @@ pub fn togglefullscreen(arg: *const cfg.Config.Arg) void {
         setfullscreen(sel.?, !sel.?.isfullscreen);
 }
 
+pub fn reload(arg: *const cfg.Config.Arg) void {
+    _ = arg;
+    configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
+}
+
 pub fn killclient(arg: *const cfg.Config.Arg) void {
     _ = arg;
     var sel = focustop(selmon);
@@ -2386,6 +2389,8 @@ pub fn setup() !void {
 
     c.wlr_scene_set_presentation(scene, c.wlr_presentation_create(dpy, backend));
 
+    _ = c.wl_global_create(dpy, &c.zdwl_ipc_manager_v2_interface, 1, null, ipc.manager_bind);
+
     xwayland = c.wlr_xwayland_create(dpy, compositior, true) orelse {
         return error.XWaylandInit;
     };
@@ -2437,6 +2442,7 @@ pub fn printstatus() void {
         _ = c.printf("%s selmon %u\n", mon.output.name, mon == selmon);
         _ = c.printf("%s tags %u %u %u %u\n", mon.output.name, occ, mon.tagset[mon.seltags], sel, urg);
         _ = c.printf("%s layout %s\n", mon.output.name, mon.ltsymbol.*.ptr);
+        ipc.output_printstatus(mon);
     }
 
     _ = c.fflush(c.stdout);
