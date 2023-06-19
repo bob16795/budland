@@ -648,7 +648,7 @@ pub fn arrangelayers(m: *Monitor) void {
 
     for (layers_above_shell) |layer| {
         for (m.layers[layer].items) |layersurface| {
-            if (!locked and (layersurface.layer_surface.current.keyboard_interactive != 0) and layersurface.mapped) {
+            if (!locked and layersurface.layer_surface.current.keyboard_interactive != 0 and layersurface.mapped) {
                 focusclient(null, false);
                 exclusive_focus = @ptrToInt(layersurface);
                 client_notify_enter(layersurface.layer_surface.surface, c.wlr_seat_get_keyboard(seat));
@@ -1284,7 +1284,8 @@ pub fn commitlayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) cal
 
     var lyr = layers.get(@intToEnum(Layer, wlr_layer_surface.current.layer));
     if (lyr != layersurface.scene.node.parent) {
-        return;
+        c.wlr_scene_node_reparent(&layersurface.scene.node, lyr);
+        c.wlr_scene_node_reparent(&layersurface.popups.node, lyr);
     }
 
     if (wlr_layer_surface.current.layer < c.ZWLR_LAYER_SHELL_V1_LAYER_TOP)
@@ -2294,11 +2295,15 @@ pub fn setup() !void {
 
     scene = c.wlr_scene_create();
 
-    var iter = layers.iterator();
-
-    while (iter.next()) |layer| {
-        layers.set(layer.key, c.wlr_scene_tree_create(&scene.*.tree));
-    }
+    layers.set(.LyrBg, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrBottom, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrTile, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrFloat, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrFS, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrOverlay, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrTop, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrDragIcon, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrBlock, c.wlr_scene_tree_create(&scene.*.tree));
 
     drw = c.wlr_renderer_autocreate(backend) orelse {
         return error.WaylandFailed;
