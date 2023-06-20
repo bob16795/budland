@@ -162,6 +162,14 @@ const Atoms = enum(usize) {
     NetWMWindowTypeUtility,
 };
 
+const PointerConstraint = struct {
+    constraint: *c.wlr_pointer_constraint_v1,
+    focused: *Client,
+
+    set_region: c.wl_listener,
+    destroy: c.wl_listener,
+};
+
 const Container = struct {
     x_start: f32,
     y_start: f32,
@@ -319,6 +327,12 @@ var grabc: ?*Client = null;
 var grabcx: i32 = 0;
 var grabcy: i32 = 0;
 var netatom: std.EnumArray(Atoms, c.Atom) = undefined;
+var relative_pointer_mgr: *c.wlr_relative_pointer_manager_v1 = undefined;
+var pointer_constraints: *c.wlr_pointer_constraints_v1 = undefined;
+var pointer_constraint_commit: c.wl_listener = undefined;
+var active_constraint: ?*PointerConstraint = null;
+var active_confine: c.pixman_region32_t = undefined;
+var active_confine_requires_warp: bool = false;
 
 var cursor_image: ?[]const u8 = "left_ptr\x00";
 
@@ -358,6 +372,7 @@ var request_start_drag: c.wl_listener = .{ .link = undefined, .notify = requests
 var start_drag: c.wl_listener = .{ .link = undefined, .notify = startdrag };
 var drag_icon_destroy: c.wl_listener = .{ .link = undefined, .notify = destroydragicon };
 var output_mgr_apply: c.wl_listener = .{ .link = undefined, .notify = outputmgrapply };
+var new_pointer_constraint: c.wl_listener = .{ .link = undefined, .notify = createpointerconstraint };
 
 pub fn bud(comptime igapps: i32, comptime ogapps: i32, comptime containers: *const Container) (fn (*Monitor) void) {
     return struct {
@@ -721,14 +736,61 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
         return;
     }
 
-    motionnotify(0);
+    motionnotify(0, null, 0, 0, 0, 0);
 
     client_notify_enter(client_surface(client.?).?, c.wlr_seat_get_keyboard(seat));
     client_activate_surface(client_surface(client.?).?, true);
 }
 
-pub fn motionnotify(time: u32) void {
+pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64, dx_unaccel: f64, dy_unaccel: f64) void {
+    var dx = adx;
+    var dy = ady;
+
+    var sx: f64 = 0;
+    var sy: f64 = 0;
+    var sx_confirmed: f64 = 0;
+    var sy_confirmed: f64 = 0;
+    var surface: ?*c.wlr_surface = null;
+    var client: ?*Client = null;
+    var w: ?*Client = null;
+    var l: ?*LayerSurface = null;
+
+    _ = xytonode(cursor.x, cursor.y, &surface, &client, null, &sx, &sy);
+
+    if (cursor_mode == .CurPressed and seat.drag == null) {
+        var kind = toplevel_from_wlr_surface(seat.pointer_state.focused_surface, &w, &l);
+        if (kind != .Undefined) {
+            client = w;
+            surface = seat.pointer_state.focused_surface;
+            sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
+            sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
+        }
+    }
+
     if (time != 0) {
+        c.wlr_relative_pointer_manager_v1_send_relative_motion(relative_pointer_mgr, seat, @intCast(u64, time * 1000), dx, dy, dx_unaccel, dy_unaccel);
+
+        var constraint: *c.wlr_pointer_constraint_v1 = undefined;
+        constraint = c.wl_container_of(pointer_constraints.constraints.next, constraint, "link");
+        const start = constraint;
+
+        while (constraint != start) {
+            cursorconstrain(constraint);
+            constraint = c.wl_container_of(constraint.link.next, constraint, "link");
+        }
+
+        if (active_constraint != null) {
+            constraint = active_constraint.?.constraint;
+            if (constraint.surface == surface and c.wlr_region_confine(&active_confine, sx, sy, sx + dx, sy + dy, &sx_confirmed, &sy_confirmed)) {
+                dx = sx_confirmed - sx;
+                dy = sy_confirmed - sy;
+            } else {
+                return;
+            }
+        }
+
+        c.wlr_cursor_move(cursor, device, dx, dy);
+
         c.wlr_idle_notify_activity(idle, seat);
         c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
@@ -749,25 +811,6 @@ pub fn motionnotify(time: u32) void {
     } else if (cursor_mode == .CurResize) {
         resize(grabc.?, .{ .x = grabc.?.geom.x, .y = grabc.?.geom.y, .width = @floatToInt(i32, cursor.x) - grabc.?.geom.x, .height = @floatToInt(i32, cursor.y) - grabc.?.geom.y }, true);
         return;
-    }
-
-    var surface: ?*c.wlr_surface = null;
-    var client: ?*Client = null;
-    var w: ?*Client = null;
-    var l: ?*LayerSurface = null;
-    var sx: f64 = 0;
-    var sy: f64 = 0;
-
-    _ = xytonode(cursor.x, cursor.y, &surface, &client, null, &sx, &sy);
-
-    if (cursor_mode == .CurPressed and seat.drag == null) {
-        var kind = toplevel_from_wlr_surface(seat.pointer_state.focused_surface, &w, &l);
-        if (kind != .Undefined) {
-            client = w;
-            surface = seat.pointer_state.focused_surface;
-            sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
-            sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
-        }
     }
 
     if (surface == null and seat.drag == null and cursor_image != null and !std.mem.eql(u8, cursor_image.?, "left_ptr\x00")) {
@@ -966,8 +1009,7 @@ pub fn arrange(mon: *Monitor) void {
     if (mon.lt[mon.sellt].arrange != null)
         mon.lt[mon.sellt].arrange.?(mon);
 
-    motionnotify(0);
-    checkidleinhibitor(null);
+    motionnotify(0, null, 0, 0, 0, 0);
 }
 
 pub fn checkidleinhibitor(exclude: ?*c.wlr_surface) void {
@@ -1229,6 +1271,124 @@ pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) call
     checkidleinhibitor(root_surface);
 }
 
+pub fn createpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = listener;
+
+    var wlr_constraint = @ptrCast(*c.wlr_pointer_constraint_v1, @alignCast(@alignOf(c.wlr_pointer_constraint_v1), data));
+    var constraint = allocator.create(PointerConstraint) catch unreachable;
+    var sel = focustop(selmon);
+
+    var client: ?*Client = null;
+    _ = toplevel_from_wlr_surface(wlr_constraint.surface, &client, null);
+    constraint.constraint = wlr_constraint;
+    wlr_constraint.data = constraint;
+
+    constraint.set_region.notify = pointerconstraintsetregion;
+    c.wl_signal_add(&wlr_constraint.*.events.set_region, &constraint.set_region);
+    constraint.destroy.notify = destroypointerconstraint;
+    c.wl_signal_add(&wlr_constraint.*.events.destroy, &constraint.destroy);
+
+    if (client == sel)
+        cursorconstrain(wlr_constraint);
+}
+
+pub fn cursorconstrain(wlr_constraint: *c.wlr_pointer_constraint_v1) void {
+    var constraint = @ptrCast(*PointerConstraint, @alignCast(@alignOf(PointerConstraint), wlr_constraint.data));
+
+    if (active_constraint == constraint)
+        return;
+
+    c.wl_list_remove(&pointer_constraint_commit.link);
+    if (active_constraint != null) {
+        //if (wlr_constraint == null)
+        //    cursorwarptoconstrainthint();
+
+        c.wlr_pointer_constraint_v1_send_deactivated(active_constraint.?.constraint);
+    }
+
+    active_constraint = constraint;
+
+    if (true) {
+        c.wl_list_init(&pointer_constraint_commit.link);
+        return;
+    }
+
+    active_confine_requires_warp = true;
+
+    if (c.pixman_region32_not_empty(&wlr_constraint.current.region) != 0) {
+        _ = c.pixman_region32_intersect(&wlr_constraint.region, &wlr_constraint.surface.*.input_region, &wlr_constraint.current.region);
+    } else {
+        _ = c.pixman_region32_copy(&wlr_constraint.region, &wlr_constraint.surface.*.input_region);
+    }
+
+    checkconstraintregion();
+
+    c.wlr_pointer_constraint_v1_send_activated(active_constraint.?.constraint);
+
+    pointer_constraint_commit.notify = commitpointerconstraint;
+    c.wl_signal_add(&wlr_constraint.surface.*.events.commit, &pointer_constraint_commit);
+}
+
+pub fn cursorwarptoconstrainthint() void {
+    const constraint = active_constraint.?.constraint;
+
+    if (constraint.current.committed & c.WLR_POINTER_CONSTRAINT_V1_STATE_CURSOR_HINT != 0) {
+        var sx = constraint.current.cursor_hint.x;
+        var sy = constraint.current.cursor_hint.y;
+        var lx = sx;
+        var ly = sy;
+
+        var client: ?*Client = null;
+        _ = toplevel_from_wlr_surface(constraint.surface, &client, null);
+        if (client) |cli| {
+            lx -= @intToFloat(f64, cli.geom.x);
+            ly -= @intToFloat(f64, cli.geom.y);
+        }
+
+        _ = c.wlr_cursor_warp(cursor, null, lx, ly);
+
+        c.wlr_seat_pointer_warp(seat, sx, sy);
+    }
+}
+
+pub fn pointerconstraintsetregion(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = data;
+
+    var constraint: *PointerConstraint = undefined;
+    constraint = c.wl_container_of(listener, constraint, "set_region");
+    active_confine_requires_warp = true;
+    constraint.constraint.surface.*.data = null;
+}
+
+pub fn destroypointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = data;
+
+    var constraint: *PointerConstraint = undefined;
+    constraint = c.wl_container_of(listener, constraint, "destroy");
+
+    c.wl_list_remove(&constraint.set_region.link);
+    c.wl_list_remove(&constraint.destroy.link);
+
+    if (active_constraint == constraint) {
+        cursorwarptoconstrainthint();
+
+        if (pointer_constraint_commit.link.next != null)
+            c.wl_list_remove(&pointer_constraint_commit.link);
+
+        c.wl_list_init(&pointer_constraint_commit.link);
+        active_constraint = null;
+    }
+
+    allocator.destroy(constraint);
+}
+
+pub fn commitpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = listener;
+    _ = data;
+
+    checkconstraintregion();
+}
+
 pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
@@ -1320,7 +1480,7 @@ pub fn maplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callco
     layersurface = c.wl_container_of(listener, layersurface, "map");
 
     c.wlr_surface_send_enter(layersurface.layer_surface.surface, layersurface.mon.?.output);
-    motionnotify(0);
+    motionnotify(0, null, 0, 0, 0, 0);
 }
 
 pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
@@ -1334,6 +1494,7 @@ pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) call
     layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), layersurface.layer_surface.output.*.data));
     if (layersurface.layer_surface.*.output != null and layersurface.mon != null)
         arrangelayers(layersurface.mon.?);
+    motionnotify(0, null, 0, 0, 0, 0);
 }
 
 pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1610,7 +1771,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     c.wl_list_remove(&client.commit.link);
     c.wlr_scene_node_destroy(&client.scene.node);
     printstatus();
-    motionnotify(0);
+    motionnotify(0, null, 0, 0, 0, 0);
 }
 
 pub fn outputmgrapply(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1833,7 +1994,7 @@ pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     if (drag.icon != null) return;
 
     drag.icon.*.data = c.wlr_scene_subsurface_tree_create(layers.get(.LyrDragIcon), drag.icon.*.surface);
-    motionnotify(0);
+    motionnotify(0, null, 0, 0, 0, 0);
     c.wl_signal_add(&drag.icon.*.events.destroy, &drag_icon_destroy);
 }
 
@@ -1844,7 +2005,7 @@ pub fn destroydragicon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
     c.wlr_scene_node_destroy(@ptrCast(*c.wlr_scene_node, @alignCast(@alignOf(c.wlr_scene_node), icon.data)));
 
     focusclient(focustop(selmon), true);
-    motionnotify(0);
+    motionnotify(0, null, 0, 0, 0, 0);
 }
 
 pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1852,8 +2013,7 @@ pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 
     var event = @ptrCast(*c.wlr_pointer_motion_event, @alignCast(@alignOf(c.wlr_pointer_motion_event), data));
 
-    c.wlr_cursor_move(cursor, &event.pointer.*.base, event.delta_x, event.delta_y);
-    motionnotify(event.time_msec);
+    motionnotify(event.time_msec, &event.pointer.*.base, event.delta_x, event.delta_y, event.unaccel_dx, event.unaccel_dy);
 }
 
 pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1861,8 +2021,15 @@ pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 
     var event = @ptrCast(*c.wlr_pointer_motion_absolute_event, @alignCast(@alignOf(c.wlr_pointer_motion_absolute_event), data));
 
-    c.wlr_cursor_warp_absolute(cursor, &event.pointer.*.base, event.x, event.y);
-    motionnotify(event.time_msec);
+    var lx: f64 = undefined;
+    var ly: f64 = undefined;
+    var dx: f64 = undefined;
+    var dy: f64 = undefined;
+    c.wlr_cursor_absolute_to_layout_coords(cursor, &event.pointer.*.base, event.x, event.y, &lx, &ly);
+    dx = lx - cursor.x;
+    dy = ly - cursor.y;
+
+    motionnotify(event.time_msec, &event.pointer.*.base, dx, dy, dx, dy);
 }
 
 pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1900,7 +2067,7 @@ pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
                 cursor_mode = .CurNormal;
 
                 c.wlr_seat_pointer_clear_focus(seat);
-                motionnotify(0);
+                motionnotify(0, null, 0, 0, 0, 0);
                 selmon = xytomon(cursor.x, cursor.y);
                 setmon(grabc.?, selmon, 0);
             } else cursor_mode = .CurNormal;
@@ -2392,6 +2559,11 @@ pub fn setup() !void {
     c.wl_signal_add(&output_mgr.events.apply, &output_mgr_apply);
     // c.wl_signal_add(&output_mgr.events.test, &output_mgr_test);
 
+    relative_pointer_mgr = c.wlr_relative_pointer_manager_v1_create(dpy);
+    pointer_constraints = c.wlr_pointer_constraints_v1_create(dpy);
+    c.wl_signal_add(&pointer_constraints.events.new_constraint, &new_pointer_constraint);
+    c.wl_list_init(&pointer_constraint_commit.link);
+
     c.wlr_scene_set_presentation(scene, c.wlr_presentation_create(dpy, backend));
 
     _ = c.wl_global_create(dpy, &c.zdwl_ipc_manager_v2_interface, 1, null, ipc.manager_bind);
@@ -2491,6 +2663,40 @@ pub fn run(startup_cmd: ?[]const u8) !void {
     c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
 
     c.wl_display_run(dpy);
+}
+
+pub fn checkconstraintregion() void {
+    const constraint = active_constraint.?.constraint;
+    const region = &constraint.region;
+
+    var client: ?*Client = undefined;
+    var sx: f64 = 0;
+    var sy: f64 = 0;
+
+    _ = toplevel_from_wlr_surface(constraint.surface, &client, null);
+    if (active_confine_requires_warp and client != null) {
+        active_confine_requires_warp = false;
+
+        sx = cursor.x + @intToFloat(f64, client.?.geom.x);
+        sy = cursor.y + @intToFloat(f64, client.?.geom.y);
+
+        if (c.pixman_region32_contains_point(region, @floatToInt(i32, sx), @floatToInt(i32, sy), null) != 0) {
+            var nboxes: i32 = 0;
+            var boxes = c.pixman_region32_rectangles(region, &nboxes);
+            if (nboxes > 0) {
+                sx = @intToFloat(f64, @divFloor(boxes[0].x1 + boxes[0].x2, 2));
+                sy = @intToFloat(f64, @divFloor(boxes[0].y1 + boxes[0].y2, 2));
+
+                c.wlr_cursor_warp_closest(cursor, null, sx - @intToFloat(f64, client.?.geom.x), sy - @intToFloat(f64, client.?.geom.y));
+            }
+        }
+    }
+
+    if (constraint.type == c.WLR_POINTER_CONSTRAINT_V1_CONFINED) {
+        _ = c.pixman_region32_copy(&active_confine, region);
+    } else {
+        _ = c.pixman_region32_clear(&active_confine);
+    }
 }
 
 pub fn cleanup() !void {

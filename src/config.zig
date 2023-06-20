@@ -96,6 +96,11 @@ pub const Config = struct {
             return .{
                 .func = main.killclient,
             };
+        } else if (std.mem.eql(u8, cmd, "view")) {
+            return .{
+                .func = main.view,
+                .arg = .{ .ui = std.math.pow(u32, 2, try std.fmt.parseInt(u32, iter.next() orelse "0", 0)) },
+            };
         } else if (std.mem.eql(u8, cmd, "reload")) {
             return .{
                 .func = main.reload,
@@ -191,7 +196,23 @@ pub const Config = struct {
             } else if (std.mem.eql(u8, key, "Return")) {
                 result.keysym = c.XKB_KEY_Return;
             } else if (key.len == 1) {
-                result.keysym = @intCast(u32, c.XKB_KEY_a + std.ascii.toLower(key[0]) - 'a');
+                if (std.ascii.isAlphabetic(key[0])) {
+                    if (result.mod & c.WLR_MODIFIER_SHIFT != 0) {
+                        result.keysym = @intCast(u32, c.XKB_KEY_A + std.ascii.toLower(key[0]) - 'a');
+                    } else {
+                        result.keysym = @intCast(u32, c.XKB_KEY_a + std.ascii.toLower(key[0]) - 'a');
+                    }
+                } else if (std.ascii.isDigit(key[0])) {
+                    if (result.mod & c.WLR_MODIFIER_SHIFT != 0) {
+                        const shift = [_]u32{ c.XKB_KEY_topleftparens, c.XKB_KEY_exclam, c.XKB_KEY_at, c.XKB_KEY_numbersign, c.XKB_KEY_dollar };
+                        result.keysym = shift[std.ascii.toLower(key[0]) - '0'];
+                    } else {
+                        result.keysym = @intCast(u32, c.XKB_KEY_0 + std.ascii.toLower(key[0]) - '0');
+                    }
+                } else {
+                    std.log.info("{s}", .{key});
+                    return error.InvalidKey;
+                }
             } else {
                 std.log.info("{s}", .{key});
                 return error.InvalidKey;
@@ -206,8 +227,8 @@ pub const Config = struct {
             .monrules = try allocator.alloc(MonitorRule, 0),
             .rules = try allocator.alloc(Rule, 0),
             .layouts = &.{
-                .{ .symbol = "B ---", .arrange = main.bud(0, 0, &main.ContainersB) },
                 .{ .symbol = "B [+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
+                .{ .symbol = "B ---", .arrange = main.bud(0, 0, &main.ContainersB) },
             },
             .keys = try allocator.alloc(KeyBind, 1),
             .buttons = try allocator.alloc(MouseBind, 0),

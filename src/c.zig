@@ -35,8 +35,11 @@ pub usingnamespace @cImport({
     @cInclude("wlr/types/wlr_seat.h");
     @cInclude("wlr/types/wlr_output_management_v1.h");
     @cInclude("wlr/types/wlr_presentation_time.h");
+    @cInclude("wlr/types/wlr_pointer_constraints_v1.h");
+    @cInclude("wlr/types/wlr_relative_pointer_v1.h");
     @cInclude("wlr/xwayland.h");
     @cInclude("wlr/util/box.h");
+    @cInclude("wlr/util/region.h");
     @cInclude("xkbcommon/xkbcommon.h");
     @cInclude("X11/Xlib.h");
     @cInclude("wlr/types/wlr_xdg_activation_v1.h");
@@ -46,7 +49,9 @@ pub usingnamespace @cImport({
     @cInclude("errno.h");
     @cInclude("string.h");
     @cInclude("sys/wait.h");
+    @cInclude("pixman-1/pixman.h");
     @cInclude("unistd.h");
     @cInclude("wlr-layer-shell-unstable-v1-protocol.h");
     @cInclude("dwl-ipc-unstable-v2-protocol.h");
+    @cInclude("pointer-constraints-unstable-v1-protocol.h");
 });
