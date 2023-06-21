@@ -2,8 +2,12 @@ const std = @import("std");
 const c = @import("c.zig");
 const cfg = @import("config.zig");
 const ipc = @import("ipc.zig");
+const buffers = @import("buffer.zig");
 
 pub var configData: cfg.Config = undefined;
+
+pub var barheight: i32 = 20;
+pub var barpadding: i32 = 2;
 
 const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = true;
@@ -12,9 +16,10 @@ const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
 const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
 
-pub const tagcount = 4;
+pub const tagcount = 9;
 
 const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
+const bufferScale = 1.0;
 
 const gappso = 40;
 const gappsi = 15;
@@ -257,12 +262,18 @@ const Client = struct {
     geom: c.wlr_box,
     mon: ?*Monitor,
     scene: *c.wlr_scene_tree,
+    title: *buffers.DataBuffer,
+    titlescene: ?*c.wlr_scene_buffer,
     border: [4]*c.wlr_scene_rect,
     scene_surface: *c.wlr_scene_tree,
     surface: union {
         xdg: *c.wlr_xdg_surface,
         xwayland: *c.wlr_xwayland_surface,
     },
+
+    icon: ?[]const u8 = null,
+    title_override: ?[]const u8 = null,
+    lockicon: bool = false,
 
     commit: c.wl_listener,
     map: c.wl_listener,
@@ -271,6 +282,7 @@ const Client = struct {
     destroy: c.wl_listener,
     set_title: c.wl_listener,
     fullscreen: c.wl_listener,
+    frame: bool = false,
 
     // xwayland
     activate: c.wl_listener,
@@ -424,14 +436,17 @@ pub fn bud(comptime igapps: i32, comptime ogapps: i32, comptime containers: *con
             }
 
             var win = mon.w;
+            const starty = win.y;
             win.x += ogapps;
             win.y += ogapps;
             win.width -= ogapps * 2;
             win.height -= ogapps * 2;
 
             for (clients.items) |client| {
+                client.frame = true;
                 if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and (!client.isfloating and !client.isfullscreen)) {
                     var new = getSizeInContainer(client.container, win, containers, containerUsage);
+                    if (new.y == starty) client.frame = false;
                     new.x += igapps;
                     new.y += igapps;
                     new.width -= igapps * 2;
@@ -554,20 +569,28 @@ pub fn focustop(m: ?*Monitor) ?*Client {
 pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     var bbox: *c.wlr_box = if (interact) &sgeom else &client.mon.?.w;
     _ = client_set_bounds(client, geo.width, geo.height);
+
+    const old = client.geom.width;
+
     client.geom = geo;
 
     applybounds(client, bbox);
+    var titleheight: i32 = if (client.frame and !client.isfullscreen) barheight + client.bw else 0;
+
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
-    c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw);
-    c.wlr_scene_rect_set_size(client.border[0], client.geom.width, client.bw);
+    c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw + titleheight);
+    c.wlr_scene_rect_set_size(client.border[0], client.geom.width, client.bw + titleheight);
     c.wlr_scene_rect_set_size(client.border[1], client.geom.width, client.bw);
     c.wlr_scene_rect_set_size(client.border[2], client.bw, client.geom.height - 2 * client.bw);
     c.wlr_scene_rect_set_size(client.border[3], client.bw, client.geom.height - 2 * client.bw);
     c.wlr_scene_node_set_position(&client.border[1].node, 0, client.geom.height - client.bw);
     c.wlr_scene_node_set_position(&client.border[2].node, 0, client.bw);
     c.wlr_scene_node_set_position(&client.border[3].node, client.geom.width - client.bw, client.bw);
+    client.resize = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw - titleheight);
 
-    client.resize = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw);
+    if (old != client.geom.width) {
+        client_update_frame(client);
+    }
 }
 
 pub fn client_set_bounds(client: *Client, w: i32, h: i32) u32 {
@@ -764,11 +787,13 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
             surface = seat.pointer_state.focused_surface;
             sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
             sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
+            if (kind != .LayerShell)
+                sy -= @intToFloat(f64, if (w.?.frame and !w.?.isfullscreen) barheight else 0);
         }
     }
 
-    if (time != 0) {
-        c.wlr_relative_pointer_manager_v1_send_relative_motion(relative_pointer_mgr, seat, @intCast(u64, time * 1000), dx, dy, dx_unaccel, dy_unaccel);
+    if (time > 0) {
+        c.wlr_relative_pointer_manager_v1_send_relative_motion(relative_pointer_mgr, seat, @intCast(u64, time) * 1000, dx, dy, dx_unaccel, dy_unaccel);
 
         var constraint: *c.wlr_pointer_constraint_v1 = undefined;
         constraint = c.wl_container_of(pointer_constraints.constraints.next, constraint, "link");
@@ -832,7 +857,9 @@ pub fn xytonode(x: f64, y: f64, psurface: ?*?*c.wlr_surface, pc: ?*?*Client, pl:
     for (focus_order) |layer| {
         node = c.wlr_scene_node_at(&layers.get(layer).node, x, y, nx, ny);
         if (node != null and node.?.type == c.WLR_SCENE_NODE_BUFFER) {
-            surface = c.wlr_scene_surface_from_buffer(c.wlr_scene_buffer_from_node(node)).*.surface;
+            if (c.wlr_scene_surface_from_buffer(c.wlr_scene_buffer_from_node(node))) |tmp| {
+                surface = tmp.*.surface;
+            }
         }
 
         var pnode = node;
@@ -1528,6 +1555,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
+        .title = undefined,
         .border = undefined,
         .surface = undefined,
         .type = .XDGShell,
@@ -1550,6 +1578,69 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_fullscreen, &client.fullscreen);
     client.maximize.notify = maximizenotify;
     c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_maximize, &client.maximize);
+}
+
+pub fn client_update_frame(client: *Client) void {
+    if (client.geom.width == 0 or client.geom.height == 0) return;
+
+    if (client.titlescene == null) {
+        client.titlescene = c.wlr_scene_buffer_create(client.scene, null);
+    } else {
+        c.wlr_scene_buffer_set_buffer(client.titlescene, null);
+        client.title.base.impl.*.destroy.?(&client.title.base);
+    }
+
+    client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw), bufferScale, true);
+
+    var surf = c.cairo_get_target(client.title.cairo);
+
+    c.cairo_select_font_face(client.title.cairo, "Cascadia Code", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
+    c.cairo_set_font_size(client.title.cairo, @intToFloat(f64, barheight - 2 * barpadding));
+    c.cairo_rectangle(client.title.cairo, @intToFloat(f64, client.bw), @intToFloat(f64, client.bw), @intToFloat(f64, client.geom.width - 2 * client.bw), @intToFloat(f64, barheight));
+    c.cairo_set_source_rgba(client.title.cairo, 0, 0, 0, 0.2);
+    c.cairo_fill(client.title.cairo);
+
+    c.cairo_move_to(client.title.cairo, @intToFloat(f64, client.bw + barpadding), @intToFloat(f64, barheight - barpadding - client.bw));
+    const title = client_get_title(client) orelse "???";
+    c.cairo_text_path(client.title.cairo, title.ptr);
+    c.cairo_set_source_rgba(client.title.cairo, 1, 1, 1, 1);
+    c.cairo_fill(client.title.cairo);
+
+    const default: []const u8 = "X";
+
+    var tmpIcon = client.icon orelse (client_get_title(client) orelse default)[0..1];
+
+    var icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
+    defer allocator.free(icon);
+
+    var exts: c.cairo_text_extents_t = undefined;
+    c.cairo_text_extents(client.title.cairo, icon.ptr, &exts);
+
+    c.cairo_move_to(client.title.cairo, @intToFloat(f64, client.geom.width - 2 * barpadding) - exts.width, @intToFloat(f64, barheight - barpadding - client.bw));
+    c.cairo_text_path(client.title.cairo, icon.ptr);
+    c.cairo_set_source_rgba(client.title.cairo, 1, 1, 1, 1);
+    c.cairo_fill(client.title.cairo);
+
+    c.cairo_surface_flush(surf);
+
+    c.wlr_scene_buffer_set_buffer(client.titlescene, &client.title.base);
+    if (client.frame and !client.isfullscreen) {
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @intCast(i32, client.geom.width), @intCast(i32, client.title.unscaled_height));
+        c.wlr_scene_buffer_set_source_box(client.titlescene.?, &c.wlr_fbox{
+            .x = 0,
+            .y = 0,
+            .width = @intToFloat(f64, client.geom.width) * bufferScale,
+            .height = @intToFloat(f64, barheight) * bufferScale,
+        });
+    } else {
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, 0, 0);
+        c.wlr_scene_buffer_set_source_box(client.titlescene.?, &c.wlr_fbox{
+            .x = 0,
+            .y = 0,
+            .width = 1,
+            .height = 1,
+        });
+    }
 }
 
 pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1619,6 +1710,13 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     for (clients.items) |w|
         if (w != client and w.isfullscreen and mon == w.mon and (w.tags & client.tags != 0))
             setfullscreen(w, false);
+
+    if (client.isfloating) {
+        client.frame = true;
+        resize(client, client.geom, false);
+    }
+
+    client_update_frame(client);
 }
 
 pub fn client_set_tiled(client: *Client, edges: u32) void {
@@ -1662,6 +1760,9 @@ pub fn applyrules(client: *Client) void {
             client.isfloating = r.isfloating;
             client.iscentered = r.center;
             client.container = r.container;
+            client.title_override = r.name;
+            client.icon = r.icon;
+
             newtags |= r.tags;
             for (mons, 0..) |m, idx| {
                 if (r.monitor == idx) {
@@ -1695,6 +1796,8 @@ pub fn client_get_appid(client: *Client) ?[]const u8 {
 
 pub fn client_get_title(client: *Client) ?[]const u8 {
     var result: []const u8 = undefined;
+
+    if (client.title_override) |override| return override;
 
     if (client.type == .X11Managed or client.type == .X11Unmanaged) {
         result.ptr = client.surface.xwayland.title orelse return null;
@@ -1830,6 +1933,8 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     client = c.wl_container_of(listener, client, "set_title");
     if (client == focustop(client.mon))
         printstatus();
+
+    client_update_frame(client);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1886,6 +1991,9 @@ pub fn destroynotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
         c.wl_list_remove(&client.activate.link);
     }
 
+    if (client.titlescene != null)
+        client.title.base.impl.*.destroy.?(&client.title.base);
+
     allocator.destroy(client);
 }
 
@@ -1897,6 +2005,7 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
+        .title = undefined,
         .border = undefined,
         .surface = undefined,
     });
@@ -1991,7 +2100,7 @@ pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     _ = listener;
     var drag = @ptrCast(*c.wlr_drag, @alignCast(@alignOf(c.wlr_drag), data));
 
-    if (drag.icon != null) return;
+    if (drag.icon == null) return;
 
     drag.icon.*.data = c.wlr_scene_subsurface_tree_create(layers.get(.LyrDragIcon), drag.icon.*.surface);
     motionnotify(0, null, 0, 0, 0, 0);

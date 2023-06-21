@@ -1,3 +1,4 @@
+pub const DRM_FORMAT_ARGB8888 = 875708993;
 pub usingnamespace @cImport({
     @cDefine("WLR_USE_UNSTABLE", "");
     @cInclude("wlr/backend.h");
@@ -40,6 +41,7 @@ pub usingnamespace @cImport({
     @cInclude("wlr/xwayland.h");
     @cInclude("wlr/util/box.h");
     @cInclude("wlr/util/region.h");
+    @cInclude("wlr/interfaces/wlr_buffer.h");
     @cInclude("xkbcommon/xkbcommon.h");
     @cInclude("X11/Xlib.h");
     @cInclude("wlr/types/wlr_xdg_activation_v1.h");
@@ -49,6 +51,7 @@ pub usingnamespace @cImport({
     @cInclude("errno.h");
     @cInclude("string.h");
     @cInclude("sys/wait.h");
+    @cInclude("cairo/cairo.h");
     @cInclude("pixman-1/pixman.h");
     @cInclude("unistd.h");
     @cInclude("wlr-layer-shell-unstable-v1-protocol.h");

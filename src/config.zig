@@ -50,6 +50,8 @@ pub const Config = struct {
     const Rule = struct {
         id: ?[]const u8 = null,
         title: ?[]const u8 = null,
+        name: ?[]const u8 = null,
+        icon: ?[]const u8 = null,
         tags: u32 = 0,
         container: u8 = 0,
         center: bool = false,
@@ -195,6 +197,14 @@ pub const Config = struct {
                 result.keysym = c.XKB_KEY_space;
             } else if (std.mem.eql(u8, key, "Return")) {
                 result.keysym = c.XKB_KEY_Return;
+            } else if (std.mem.eql(u8, key, "F1")) {
+                result.keysym = c.XKB_KEY_F1;
+            } else if (std.mem.eql(u8, key, "F2")) {
+                result.keysym = c.XKB_KEY_F2;
+            } else if (std.mem.eql(u8, key, "F3")) {
+                result.keysym = c.XKB_KEY_F3;
+            } else if (std.mem.eql(u8, key, "F4")) {
+                result.keysym = c.XKB_KEY_F4;
             } else if (key.len == 1) {
                 if (std.ascii.isAlphabetic(key[0])) {
                     if (result.mod & c.WLR_MODIFIER_SHIFT != 0) {
@@ -227,8 +237,8 @@ pub const Config = struct {
             .monrules = try allocator.alloc(MonitorRule, 0),
             .rules = try allocator.alloc(Rule, 0),
             .layouts = &.{
-                .{ .symbol = "B [+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
-                .{ .symbol = "B ---", .arrange = main.bud(0, 0, &main.ContainersB) },
+                .{ .symbol = "[+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
+                .{ .symbol = "---", .arrange = main.bud(0, 0, &main.ContainersB) },
             },
             .keys = try allocator.alloc(KeyBind, 1),
             .buttons = try allocator.alloc(MouseBind, 0),
@@ -283,6 +293,10 @@ pub const Config = struct {
                     if (std.mem.eql(u8, id.?, "_")) id = null;
                     var title: ?[]const u8 = splitIter.next() orelse return error.NoCommand;
                     if (std.mem.eql(u8, title.?, "_")) title = null;
+                    var name: ?[]const u8 = splitIter.next() orelse return error.NoCommand;
+                    if (std.mem.eql(u8, name.?, "_")) name = null;
+                    var icon: ?[]const u8 = splitIter.next() orelse return error.NoCommand;
+                    if (std.mem.eql(u8, icon.?, "_")) icon = null;
                     var tags = try std.fmt.parseInt(u32, splitIter.next() orelse "0", 0);
                     var container = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
                     var center = std.ascii.eqlIgnoreCase("true", splitIter.next() orelse return error.NoCommand);
@@ -292,6 +306,8 @@ pub const Config = struct {
                     result.rules[result.rules.len - 1] = .{
                         .id = if (id) |i| try allocator.dupe(u8, i) else null,
                         .title = if (title) |i| try allocator.dupe(u8, i) else null,
+                        .name = if (name) |i| try allocator.dupeZ(u8, i) else null,
+                        .icon = if (icon) |i| try allocator.dupeZ(u8, i) else null,
                         .tags = tags,
                         .container = container,
                         .center = center,

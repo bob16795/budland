@@ -33,6 +33,7 @@ pub fn build(b: *std.Build) void {
     exe.linkSystemLibrary("xkbcommon");
     exe.linkSystemLibrary("libinput");
     exe.linkSystemLibrary("pixman-1");
+    exe.linkSystemLibrary("cairo");
     exe.linkSystemLibrary("xcb");
     exe.linkLibC();
 
