@@ -13,10 +13,12 @@ const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = true;
 const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
+const inactivefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
+const activefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
 
-pub const tagcount = 9;
+pub const tagcount = 4;
 
 const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
 const bufferScale = 1.0;
@@ -262,7 +264,7 @@ const Client = struct {
     geom: c.wlr_box,
     mon: ?*Monitor,
     scene: *c.wlr_scene_tree,
-    title: *buffers.DataBuffer,
+    title: ?*buffers.DataBuffer,
     titlescene: ?*c.wlr_scene_buffer,
     border: [4]*c.wlr_scene_rect,
     scene_surface: *c.wlr_scene_tree,
@@ -283,6 +285,9 @@ const Client = struct {
     set_title: c.wl_listener,
     fullscreen: c.wl_listener,
     frame: bool = false,
+    framefocused: bool = false,
+    hasframe: bool = false,
+    frameTabs: i32 = 0,
 
     // xwayland
     activate: c.wl_listener,
@@ -571,11 +576,12 @@ pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     _ = client_set_bounds(client, geo.width, geo.height);
 
     const old = client.geom.width;
+    client_update_frame(client, old != client.geom.width);
 
     client.geom = geo;
 
     applybounds(client, bbox);
-    var titleheight: i32 = if (client.frame and !client.isfullscreen) barheight + client.bw else 0;
+    var titleheight: i32 = if (client.hasframe) barheight + client.bw else 0;
 
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
     c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw + titleheight);
@@ -587,10 +593,6 @@ pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     c.wlr_scene_node_set_position(&client.border[2].node, 0, client.bw);
     c.wlr_scene_node_set_position(&client.border[3].node, client.geom.width - client.bw, client.bw);
     client.resize = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw - titleheight);
-
-    if (old != client.geom.width) {
-        client_update_frame(client);
-    }
 }
 
 pub fn client_set_bounds(client: *Client, w: i32, h: i32) u32 {
@@ -787,8 +789,8 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
             surface = seat.pointer_state.focused_surface;
             sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
             sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
-            if (kind != .LayerShell)
-                sy -= @intToFloat(f64, if (w.?.frame and !w.?.isfullscreen) barheight else 0);
+            //if (kind != .LayerShell)
+            //    sy -= @intToFloat(f64, if (w.?.hasframe) barheight else 0);
         }
     }
 
@@ -1555,7 +1557,6 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
-        .title = undefined,
         .border = undefined,
         .surface = undefined,
         .type = .XDGShell,
@@ -1580,52 +1581,88 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_maximize, &client.maximize);
 }
 
-pub fn client_update_frame(client: *Client) void {
+pub fn client_update_frame(client: *Client, force: bool) void {
     if (client.geom.width == 0 or client.geom.height == 0) return;
 
     if (client.titlescene == null) {
         client.titlescene = c.wlr_scene_buffer_create(client.scene, null);
     } else {
         c.wlr_scene_buffer_set_buffer(client.titlescene, null);
-        client.title.base.impl.*.destroy.?(&client.title.base);
+        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
+        client.title = null;
     }
+
+    var targframe = client.frame and !client.isfullscreen;
+
+    var totalTabs: i32 = 0;
+    if (targframe and !client.isfloating) {
+        for (clients.items) |tabClient| {
+            if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
+            if (client.container != tabClient.container) continue;
+            totalTabs += 1;
+        }
+    } else {
+        totalTabs = 1;
+    }
+
+    var focused = if (fstack.items.len != 0) client == fstack.items[0] else false;
+
+    if (!force and client.hasframe == targframe and client.frameTabs == totalTabs and client.title != null and focused == client.framefocused) return;
+    client.hasframe = targframe;
+    client.frameTabs = totalTabs;
+    client.framefocused = focused;
 
     client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw), bufferScale, true);
 
-    var surf = c.cairo_get_target(client.title.cairo);
+    var cairo = client.title.?.cairo;
 
-    c.cairo_select_font_face(client.title.cairo, "Cascadia Code", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
-    c.cairo_set_font_size(client.title.cairo, @intToFloat(f64, barheight - 2 * barpadding));
-    c.cairo_rectangle(client.title.cairo, @intToFloat(f64, client.bw), @intToFloat(f64, client.bw), @intToFloat(f64, client.geom.width - 2 * client.bw), @intToFloat(f64, barheight));
-    c.cairo_set_source_rgba(client.title.cairo, 0, 0, 0, 0.2);
-    c.cairo_fill(client.title.cairo);
+    var surf = c.cairo_get_target(cairo);
 
-    c.cairo_move_to(client.title.cairo, @intToFloat(f64, client.bw + barpadding), @intToFloat(f64, barheight - barpadding - client.bw));
-    const title = client_get_title(client) orelse "???";
-    c.cairo_text_path(client.title.cairo, title.ptr);
-    c.cairo_set_source_rgba(client.title.cairo, 1, 1, 1, 1);
-    c.cairo_fill(client.title.cairo);
+    var tabWidth: f64 = @intToFloat(f64, client.geom.width - client.bw) / @intToFloat(f64, client.frameTabs);
 
-    const default: []const u8 = "X";
+    var currentTab: i32 = 0;
+    for (clients.items) |tabClient| {
+        if (tabClient != client) {
+            if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
+            if (client.container != tabClient.container) continue;
+        }
+        c.cairo_select_font_face(cairo, "Cascadia Code", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
+        c.cairo_set_font_size(cairo, @intToFloat(f64, barheight - 2 * barpadding));
+        c.cairo_rectangle(cairo, @intToFloat(f64, tabClient.bw) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, tabClient.bw), tabWidth - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight));
+        c.cairo_set_source_rgba(cairo, 0, 0, 0, 0.2);
+        if (client == tabClient)
+            c.cairo_set_source_rgba(cairo, 1, 1, 1, 0.2);
+        c.cairo_fill(cairo);
 
-    var tmpIcon = client.icon orelse (client_get_title(client) orelse default)[0..1];
+        c.cairo_move_to(cairo, @intToFloat(f64, tabClient.bw + barpadding) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, barheight - barpadding - tabClient.bw));
+        const title = client_get_title(tabClient) orelse "???";
+        c.cairo_text_path(cairo, title.ptr);
+        c.cairo_set_source_rgba(cairo, 1, 1, 1, 1);
+        c.cairo_fill(cairo);
+        const default: []const u8 = "X";
 
-    var icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
-    defer allocator.free(icon);
+        var tmpIcon = tabClient.icon orelse (client_get_title(tabClient) orelse default)[0..1];
 
-    var exts: c.cairo_text_extents_t = undefined;
-    c.cairo_text_extents(client.title.cairo, icon.ptr, &exts);
+        var icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
+        defer allocator.free(icon);
 
-    c.cairo_move_to(client.title.cairo, @intToFloat(f64, client.geom.width - 2 * barpadding) - exts.width, @intToFloat(f64, barheight - barpadding - client.bw));
-    c.cairo_text_path(client.title.cairo, icon.ptr);
-    c.cairo_set_source_rgba(client.title.cairo, 1, 1, 1, 1);
-    c.cairo_fill(client.title.cairo);
+        var exts: c.cairo_text_extents_t = undefined;
+        c.cairo_text_extents(cairo, icon.ptr, &exts);
+
+        c.cairo_move_to(cairo, @intToFloat(f64, currentTab + 1) * tabWidth - exts.width - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight - barpadding - tabClient.bw));
+        c.cairo_text_path(cairo, icon.ptr);
+        c.cairo_set_source_rgba(cairo, 1, 1, 1, 1);
+        c.cairo_fill(cairo);
+
+        currentTab += 1;
+    }
 
     c.cairo_surface_flush(surf);
 
-    c.wlr_scene_buffer_set_buffer(client.titlescene, &client.title.base);
-    if (client.frame and !client.isfullscreen) {
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @intCast(i32, client.geom.width), @intCast(i32, client.title.unscaled_height));
+    c.wlr_scene_buffer_set_buffer(client.titlescene, &client.title.?.base);
+
+    if (client.hasframe) {
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @intCast(i32, client.geom.width), @intCast(i32, client.title.?.unscaled_height));
         c.wlr_scene_buffer_set_source_box(client.titlescene.?, &c.wlr_fbox{
             .x = 0,
             .y = 0,
@@ -1716,7 +1753,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
         resize(client, client.geom, false);
     }
 
-    client_update_frame(client);
+    client_update_frame(client, false);
 }
 
 pub fn client_set_tiled(client: *Client, edges: u32) void {
@@ -1934,7 +1971,7 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     if (client == focustop(client.mon))
         printstatus();
 
-    client_update_frame(client);
+    client_update_frame(client, false);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1992,7 +2029,7 @@ pub fn destroynotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
     }
 
     if (client.titlescene != null)
-        client.title.base.impl.*.destroy.?(&client.title.base);
+        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
 
     allocator.destroy(client);
 }
@@ -2005,7 +2042,6 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
-        .title = undefined,
         .border = undefined,
         .surface = undefined,
     });

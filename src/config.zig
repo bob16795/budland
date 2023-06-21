@@ -69,6 +69,7 @@ pub const Config = struct {
 
     flags: packed struct {
         sloppyFocus: bool = false,
+        bypassSurface: bool = true,
     } = .{},
 
     autoexec: []AutoExec,
