@@ -13,6 +13,8 @@ const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = true;
 const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
+const inactiveframecolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
+const activeframecolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const inactivefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const activefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
@@ -21,7 +23,7 @@ const borderpx: i32 = 2;
 pub const tagcount = 4;
 
 const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
-const bufferScale = 1.0;
+const bufferScale = 2.0;
 
 const gappso = 40;
 const gappsi = 15;
@@ -451,7 +453,7 @@ pub fn bud(comptime igapps: i32, comptime ogapps: i32, comptime containers: *con
                 client.frame = true;
                 if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and (!client.isfloating and !client.isfullscreen)) {
                     var new = getSizeInContainer(client.container, win, containers, containerUsage);
-                    if (new.y == starty) client.frame = false;
+                    if (new.y == starty and mon.w.y != mon.m.y) client.frame = false;
                     new.x += igapps;
                     new.y += igapps;
                     new.width -= igapps * 2;
@@ -576,11 +578,11 @@ pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     _ = client_set_bounds(client, geo.width, geo.height);
 
     const old = client.geom.width;
-    client_update_frame(client, old != client.geom.width);
-
     client.geom = geo;
 
     applybounds(client, bbox);
+    client_update_frame(client, old != client.geom.width);
+
     var titleheight: i32 = if (client.hasframe) barheight + client.bw else 0;
 
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
@@ -789,8 +791,8 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
             surface = seat.pointer_state.focused_surface;
             sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
             sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
-            //if (kind != .LayerShell)
-            //    sy -= @intToFloat(f64, if (w.?.hasframe) barheight else 0);
+            if (kind != .LayerShell)
+                sy -= @intToFloat(f64, if (w.?.hasframe) (barheight + w.?.bw) else 0);
         }
     }
 
@@ -1586,10 +1588,6 @@ pub fn client_update_frame(client: *Client, force: bool) void {
 
     if (client.titlescene == null) {
         client.titlescene = c.wlr_scene_buffer_create(client.scene, null);
-    } else {
-        c.wlr_scene_buffer_set_buffer(client.titlescene, null);
-        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
-        client.title = null;
     }
 
     var targframe = client.frame and !client.isfullscreen;
@@ -1612,6 +1610,12 @@ pub fn client_update_frame(client: *Client, force: bool) void {
     client.frameTabs = totalTabs;
     client.framefocused = focused;
 
+    if (client.title != null) {
+        c.wlr_scene_buffer_set_buffer(client.titlescene, null);
+        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
+        client.title = null;
+    }
+
     client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw), bufferScale, true);
 
     var cairo = client.title.?.cairo;
@@ -1626,7 +1630,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
-        c.cairo_select_font_face(cairo, "Cascadia Code", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
+        c.cairo_select_font_face(cairo, "CaskaydiaCovePL Nerd Font", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
         c.cairo_set_font_size(cairo, @intToFloat(f64, barheight - 2 * barpadding));
         c.cairo_rectangle(cairo, @intToFloat(f64, tabClient.bw) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, tabClient.bw), tabWidth - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight));
         c.cairo_set_source_rgba(cairo, 0, 0, 0, 0.2);
@@ -1663,20 +1667,8 @@ pub fn client_update_frame(client: *Client, force: bool) void {
 
     if (client.hasframe) {
         c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @intCast(i32, client.geom.width), @intCast(i32, client.title.?.unscaled_height));
-        c.wlr_scene_buffer_set_source_box(client.titlescene.?, &c.wlr_fbox{
-            .x = 0,
-            .y = 0,
-            .width = @intToFloat(f64, client.geom.width) * bufferScale,
-            .height = @intToFloat(f64, barheight) * bufferScale,
-        });
     } else {
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, 0, 0);
-        c.wlr_scene_buffer_set_source_box(client.titlescene.?, &c.wlr_fbox{
-            .x = 0,
-            .y = 0,
-            .width = 1,
-            .height = 1,
-        });
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, 1, 1);
     }
 }
 
@@ -1971,7 +1963,7 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     if (client == focustop(client.mon))
         printstatus();
 
-    client_update_frame(client, false);
+    client_update_frame(client, true);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -2423,6 +2415,8 @@ pub fn killclient(arg: *const cfg.Config.Arg) void {
 pub fn focusstack(arg: *const cfg.Config.Arg) void {
     var sel = focustop(selmon);
     if (sel) |selmonsel| {
+        if (selmonsel.isfloating) return;
+
         var targ = selmonsel.container;
         var start_mon = selmonsel.mon;
 
@@ -2431,7 +2425,7 @@ pub fn focusstack(arg: *const cfg.Config.Arg) void {
         idx += @intCast(usize, arg.i);
         if (idx >= (clients.items.len)) idx = 0;
 
-        while ((clients.items[idx].container != targ or clients.items[idx].mon != start_mon) and idx != start) {
+        while ((clients.items[idx].container != targ or clients.items[idx].mon != start_mon or clients.items[idx].isfloating) and idx != start) {
             idx += @intCast(usize, arg.i);
             if (idx >= (clients.items.len)) idx = 0;
         }

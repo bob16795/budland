@@ -67,11 +67,6 @@ pub const Config = struct {
         y: i32,
     };
 
-    flags: packed struct {
-        sloppyFocus: bool = false,
-        bypassSurface: bool = true,
-    } = .{},
-
     autoexec: []AutoExec,
     monrules: []MonitorRule,
     rules: []Rule,
@@ -238,8 +233,8 @@ pub const Config = struct {
             .monrules = try allocator.alloc(MonitorRule, 0),
             .rules = try allocator.alloc(Rule, 0),
             .layouts = &.{
-                .{ .symbol = "[+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
                 .{ .symbol = "---", .arrange = main.bud(0, 0, &main.ContainersB) },
+                .{ .symbol = "[+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
             },
             .keys = try allocator.alloc(KeyBind, 1),
             .buttons = try allocator.alloc(MouseBind, 0),
