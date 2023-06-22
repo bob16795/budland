@@ -11,13 +11,6 @@ pub var barpadding: i32 = 2;
 
 const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = true;
-const bordercolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
-const focuscolor: [4]f32 = .{ 0.659, 0.392, 0.255, 1.0 };
-const inactiveframecolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
-const activeframecolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
-const inactivefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
-const activefontcolor: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
-const fullscreen_bg: [4]f32 = .{ 0.149, 0.137, 0.133, 1.0 };
 const borderpx: i32 = 2;
 
 pub const tagcount = 4;
@@ -654,7 +647,7 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
 
         if (exclusive_focus == null and seat.drag == null)
             for (client.?.border) |border|
-                c.wlr_scene_rect_set_color(border, &focuscolor);
+                c.wlr_scene_rect_set_color(border, &configData.colors[0][0]);
     }
 
     if (old != null and (client == null or client_surface(client.?) != old)) {
@@ -669,7 +662,7 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
             return;
         } else if (w != null and w.?.type != .X11Unmanaged and (client == null or !client_wants_focus(client.?))) {
             for (w.?.border) |border| {
-                c.wlr_scene_rect_set_color(border, &bordercolor);
+                c.wlr_scene_rect_set_color(border, &configData.colors[1][0]);
             }
 
             client_activate_surface(old, false);
@@ -711,8 +704,10 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
             surface = seat.pointer_state.focused_surface;
             sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
             sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
-            if (kind != .LayerShell)
-                sy -= @intToFloat(f64, if (w.?.hasframe) (barheight + w.?.bw) else 0);
+            if (kind != .LayerShell) {
+                sy -= @intToFloat(f64, if (w.?.hasframe) (barheight + w.?.bw * 2) else 0);
+                sx -= @intToFloat(f64, if (w.?.hasframe) (w.?.bw) else 0);
+            }
         }
     }
 
@@ -1106,7 +1101,7 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     mons[mons.len - 1] = m;
     printstatus();
 
-    m.fullscreen_bg = c.wlr_scene_rect_create(layers.get(.LyrFS), 0, 0, &fullscreen_bg);
+    m.fullscreen_bg = c.wlr_scene_rect_create(layers.get(.LyrFS), 0, 0, &configData.colors[0][1]);
     c.wlr_scene_node_set_enabled(&m.fullscreen_bg.node, false);
 
     m.scene_output = c.wlr_scene_output_create(scene, wlr_output);
@@ -1542,26 +1537,26 @@ pub fn client_update_frame(client: *Client, force: bool) void {
 
     var surf = c.cairo_get_target(cairo);
 
+    c.cairo_select_font_face(cairo, "CaskaydiaCovePL Nerd Font", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
+    c.cairo_set_font_size(cairo, @intToFloat(f64, barheight - 2 * barpadding));
+
     var tabWidth: f64 = @intToFloat(f64, client.geom.width - client.bw) / @intToFloat(f64, client.frameTabs);
 
     var currentTab: i32 = 0;
+    var palette = if (focused) configData.colors[0] else configData.colors[1];
     for (clients.items) |tabClient| {
         if (tabClient != client) {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
-        c.cairo_select_font_face(cairo, "CaskaydiaCovePL Nerd Font", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
-        c.cairo_set_font_size(cairo, @intToFloat(f64, barheight - 2 * barpadding));
+        c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
         c.cairo_rectangle(cairo, @intToFloat(f64, tabClient.bw) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, tabClient.bw), tabWidth - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight));
-        c.cairo_set_source_rgba(cairo, 0, 0, 0, 0.2);
-        if (client == tabClient)
-            c.cairo_set_source_rgba(cairo, 1, 1, 1, 0.2);
         c.cairo_fill(cairo);
 
         c.cairo_move_to(cairo, @intToFloat(f64, tabClient.bw + barpadding) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, barheight - barpadding - tabClient.bw));
         const title = client_get_title(tabClient) orelse "???";
         c.cairo_text_path(cairo, title.ptr);
-        c.cairo_set_source_rgba(cairo, 1, 1, 1, 1);
+        c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_fill(cairo);
         const default: []const u8 = "X";
 
@@ -1574,8 +1569,8 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         c.cairo_text_extents(cairo, icon.ptr, &exts);
 
         c.cairo_move_to(cairo, @intToFloat(f64, currentTab + 1) * tabWidth - exts.width - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight - barpadding - tabClient.bw));
+        c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_text_path(cairo, icon.ptr);
-        c.cairo_set_source_rgba(cairo, 1, 1, 1, 1);
         c.cairo_fill(cairo);
 
         currentTab += 1;
@@ -1628,7 +1623,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
         }
 
         for (&client.border) |*border| {
-            border.* = c.wlr_scene_rect_create(client.scene, 0, 0, &bordercolor);
+            border.* = c.wlr_scene_rect_create(client.scene, 0, 0, &configData.colors[0][0]);
             border.*.node.data = client;
         }
 
@@ -1883,7 +1878,8 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     if (client == focustop(client.mon))
         printstatus();
 
-    client_update_frame(client, true);
+    if (client.hasframe)
+        client_update_frame(client, true);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -2282,6 +2278,7 @@ pub fn cyclelayout(arg: *const cfg.Config.Arg) void {
             return;
         }
     }
+    setlayout(&.{ .i = 0 });
 }
 
 pub fn view(arg: *const cfg.Config.Arg) void {

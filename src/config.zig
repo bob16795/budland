@@ -5,6 +5,8 @@ const c = @import("c.zig");
 const gappso = 40;
 const gappsi = 15;
 
+const defChildren: []*const Config.Container = &.{};
+
 pub const Config = struct {
     const Self = @This();
 
@@ -79,6 +81,7 @@ pub const Config = struct {
         ids: []const u8,
     };
 
+    colors: [2][3][4]f32,
     containers: std.StringHashMap(Container),
     autoexec: []AutoExec,
     monrules: []MonitorRule,
@@ -243,6 +246,7 @@ pub const Config = struct {
 
     pub fn source(path: []const u8, allocator: std.mem.Allocator) !Self {
         var result: Self = .{
+            .colors = .{.{[_]f32{0} ** 4} ** 3} ** 2,
             .monrules = try allocator.alloc(MonitorRule, 0),
             .rules = try allocator.alloc(Rule, 0),
             .layouts = try allocator.alloc(Layout, 0),
@@ -351,7 +355,7 @@ pub const Config = struct {
                             .x_end = x2,
                             .y_end = y2,
                             .ids = try allocator.dupe(u8, &.{id}),
-                            .children = &.{},
+                            .children = defChildren,
                         });
                     } else if (std.mem.eql(u8, conKind, "multi")) {
                         var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
@@ -398,6 +402,23 @@ pub const Config = struct {
                         .igapps = ig,
                         .ogapps = og,
                     };
+                } else if (std.mem.eql(u8, cmd, "color")) {
+                    var active = std.mem.eql(u8, splitIter.next() orelse return error.NoCommand, "active");
+                    var kind = splitIter.next() orelse return error.NoCommand;
+                    var kindId: usize = if (std.mem.eql(u8, kind, "border"))
+                        0
+                    else if (std.mem.eql(u8, kind, "background"))
+                        2
+                    else if (std.mem.eql(u8, kind, "foreground"))
+                        1
+                    else
+                        return error.NoCommand;
+                    var color = try std.fmt.parseInt(u32, splitIter.next() orelse "0", 16);
+                    var r = @intToFloat(f32, (color >> 24) & 0xff) / 255;
+                    var g = @intToFloat(f32, (color >> 16) & 0xff) / 255;
+                    var b = @intToFloat(f32, (color >> 8) & 0xff) / 255;
+                    var a = @intToFloat(f32, (color >> 0) & 0xff) / 255;
+                    result.colors[if (active) 0 else 1][kindId] = .{ r, g, b, a };
                 } else {
                     return error.NoCommand;
                 }
