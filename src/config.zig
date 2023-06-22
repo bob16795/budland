@@ -28,7 +28,9 @@ pub const Config = struct {
     pub const Layout = struct {
         symbol: []const u8,
 
-        arrange: ?*const fn (*main.Monitor) void,
+        container: ?*const Container,
+        igapps: i32,
+        ogapps: i32,
     };
 
     const AutoExec = struct {
@@ -67,10 +69,21 @@ pub const Config = struct {
         y: i32,
     };
 
+    pub const Container = struct {
+        x_start: f32,
+        y_start: f32,
+        x_end: f32,
+        y_end: f32,
+        children: []*const Container,
+        name: []const u8,
+        ids: []const u8,
+    };
+
+    containers: std.StringHashMap(Container),
     autoexec: []AutoExec,
     monrules: []MonitorRule,
     rules: []Rule,
-    layouts: []const Layout,
+    layouts: []Layout,
     keys: []KeyBind,
     buttons: []MouseBind,
 
@@ -232,13 +245,11 @@ pub const Config = struct {
         var result: Self = .{
             .monrules = try allocator.alloc(MonitorRule, 0),
             .rules = try allocator.alloc(Rule, 0),
-            .layouts = &.{
-                .{ .symbol = "---", .arrange = main.bud(0, 0, &main.ContainersB) },
-                .{ .symbol = "[+]", .arrange = main.bud(gappsi, gappso, &main.ContainersB) },
-            },
+            .layouts = try allocator.alloc(Layout, 0),
             .keys = try allocator.alloc(KeyBind, 1),
             .buttons = try allocator.alloc(MouseBind, 0),
             .autoexec = try allocator.alloc(AutoExec, 0),
+            .containers = std.StringHashMap(Container).init(allocator),
         };
 
         result.keys[0] = .{ .mod = c.WLR_MODIFIER_LOGO | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .cmd = .{ .func = main.quit, .arg = .{ .i = 0 } } };
@@ -323,6 +334,69 @@ pub const Config = struct {
                         .rr = rr,
                         .x = x,
                         .y = y,
+                    };
+                } else if (std.mem.eql(u8, cmd, "container")) {
+                    var name = try allocator.dupeZ(u8, splitIter.next() orelse return error.NoCommand);
+                    var conKind = splitIter.next() orelse return error.NoCommand;
+                    if (std.mem.eql(u8, conKind, "client")) {
+                        var id = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
+                        var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var y1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        try result.containers.put(name, .{
+                            .name = name,
+                            .x_start = x1,
+                            .y_start = y1,
+                            .x_end = x2,
+                            .y_end = y2,
+                            .ids = try allocator.dupe(u8, &.{id}),
+                            .children = &.{},
+                        });
+                    } else if (std.mem.eql(u8, conKind, "multi")) {
+                        var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var y1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var ids = std.ArrayList(u8).init(allocator);
+                        var children = std.ArrayList(*Container).init(allocator);
+                        defer ids.deinit();
+                        defer children.deinit();
+
+                        while (splitIter.next()) |conName| {
+                            if (result.containers.getPtr(conName)) |child| {
+                                try ids.appendSlice(child.ids);
+                                try children.append(child);
+                            } else {
+                                return error.NoCommand;
+                            }
+                        }
+
+                        try result.containers.put(name, .{
+                            .name = name,
+                            .x_start = x1,
+                            .y_start = y1,
+                            .x_end = x2,
+                            .y_end = y2,
+                            .ids = try allocator.dupe(u8, ids.items),
+                            .children = try allocator.dupe(*Container, children.items),
+                        });
+                    } else {
+                        return error.NoCommand;
+                    }
+                } else if (std.mem.eql(u8, cmd, "layout")) {
+                    var conName = splitIter.next() orelse return error.NoCommand;
+                    var container = result.containers.getPtr(conName) orelse return error.NoContainer;
+                    var ig = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
+                    var og = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
+                    var name = splitIter.next() orelse return error.NoCommand;
+
+                    result.layouts = try allocator.realloc(result.layouts, result.layouts.len + 1);
+                    result.layouts[result.layouts.len - 1] = .{
+                        .symbol = try allocator.dupe(u8, name),
+                        .container = container,
+                        .igapps = ig,
+                        .ogapps = og,
                     };
                 } else {
                     return error.NoCommand;

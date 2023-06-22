@@ -49,73 +49,6 @@ pub const useclib = true;
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
 
-pub const ContainersB = Container{
-    .name = "ABCD",
-    .x_start = 0.00,
-    .y_start = 0.00,
-    .x_end = 1.00,
-    .y_end = 1.00,
-    .ids = &.{ 1, 2, 3, 4 },
-    .children = &.{
-        .{
-            .name = "AC",
-            .x_start = 0.00,
-            .y_start = 0.00,
-            .x_end = 0.70,
-            .y_end = 1.00,
-            .ids = &.{ 1, 3 },
-            .children = &.{
-                .{
-                    .name = "A",
-                    .x_start = 0.00,
-                    .y_start = 0.00,
-                    .x_end = 1.00,
-                    .y_end = 0.20,
-                    .ids = &.{1},
-                    .children = &.{},
-                },
-                .{
-                    .name = "C",
-                    .x_start = 0.00,
-                    .y_start = 0.20,
-                    .x_end = 1.00,
-                    .y_end = 1.00,
-                    .ids = &.{3},
-                    .children = &.{},
-                },
-            },
-        },
-        .{
-            .name = "BD",
-            .x_start = 0.70,
-            .y_start = 0.00,
-            .x_end = 1.00,
-            .y_end = 1.00,
-            .ids = &.{ 2, 4 },
-            .children = &.{
-                .{
-                    .name = "B",
-                    .x_start = 0.00,
-                    .y_start = 0.00,
-                    .x_end = 1.00,
-                    .y_end = 0.40,
-                    .ids = &.{2},
-                    .children = &.{},
-                },
-                .{
-                    .name = "D",
-                    .x_start = 0.00,
-                    .y_start = 0.40,
-                    .x_end = 1.00,
-                    .y_end = 1.00,
-                    .ids = &.{4},
-                    .children = &.{},
-                },
-            },
-        },
-    },
-};
-
 //    // misc
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
@@ -179,43 +112,33 @@ const PointerConstraint = struct {
     destroy: c.wl_listener,
 };
 
-const Container = struct {
-    x_start: f32,
-    y_start: f32,
-    x_end: f32,
-    y_end: f32,
-    children: []const Container,
-    name: []const u8,
-    ids: []const u8,
+fn getContainerBounds(self: *const cfg.Config.Container, screen: c.wlr_box) c.wlr_box {
+    var result: c.wlr_box = undefined;
 
-    fn getBounds(self: *const Container, screen: c.wlr_box) c.wlr_box {
-        var result: c.wlr_box = undefined;
+    result.x = screen.x + if (self.x_start <= 1.0)
+        @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_start)
+    else
+        @floatToInt(c_int, self.x_start);
 
-        result.x = screen.x + if (self.x_start <= 1.0)
-            @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_start)
-        else
-            @floatToInt(c_int, self.x_start);
+    result.width = screen.x + if (self.x_end <= 1.0)
+        @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_end)
+    else
+        @floatToInt(c_int, self.x_end);
+    result.width -= result.x;
 
-        result.width = screen.x + if (self.x_end <= 1.0)
-            @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_end)
-        else
-            @floatToInt(c_int, self.x_end);
-        result.width -= result.x;
+    result.y = screen.y + if (self.y_start <= 1.0)
+        @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_start)
+    else
+        @floatToInt(c_int, self.y_start);
 
-        result.y = screen.y + if (self.y_start <= 1.0)
-            @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_start)
-        else
-            @floatToInt(c_int, self.y_start);
+    result.height = screen.y + if (self.y_end <= 1.0)
+        @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_end)
+    else
+        @floatToInt(c_int, self.y_end);
+    result.height -= result.y;
 
-        result.height = screen.y + if (self.y_end <= 1.0)
-            @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_end)
-        else
-            @floatToInt(c_int, self.y_end);
-        result.height -= result.y;
-
-        return result;
-    }
-};
+    return result;
+}
 
 const LayerSurface = struct {
     type: ClientType,
@@ -393,76 +316,73 @@ var drag_icon_destroy: c.wl_listener = .{ .link = undefined, .notify = destroydr
 var output_mgr_apply: c.wl_listener = .{ .link = undefined, .notify = outputmgrapply };
 var new_pointer_constraint: c.wl_listener = .{ .link = undefined, .notify = createpointerconstraint };
 
-pub fn bud(comptime igapps: i32, comptime ogapps: i32, comptime containers: *const Container) (fn (*Monitor) void) {
-    return struct {
-        pub fn getSizeInContainer(target: u8, currentSize: c.wlr_box, container: *const Container, usage: [containers.ids.len]bool) c.wlr_box {
-            var result = currentSize;
-            if (container.ids.len == 1 and container.ids[0] == target) return result;
+fn budGetSizeInContainer(target: u8, currentSize: c.wlr_box, container: *const cfg.Config.Container, usage: []bool) c.wlr_box {
+    var result = currentSize;
+    if (container.ids.len == 1 and container.ids[0] == target) return result;
 
-            var childrenUsed: u8 = 0;
-            var idsUsed: u8 = 0;
-            for (container.ids) |id| {
-                if (usage[id - 1]) idsUsed += 1;
-            }
+    var childrenUsed: u8 = 0;
+    var idsUsed: u8 = 0;
+    for (container.ids) |id| {
+        if (usage[id - 1]) idsUsed += 1;
+    }
 
-            for (container.children) |child| {
-                var good: bool = false;
-                for (child.ids) |id| {
-                    if (usage[id - 1]) {
-                        good = true;
-                    }
-                }
-                if (good)
-                    childrenUsed += 1;
-            }
-
-            if (idsUsed == 1) return result;
-            for (container.children) |*child| {
-                if (std.mem.containsAtLeast(u8, child.ids, 1, &.{target})) {
-                    if (childrenUsed != 1)
-                        result = child.getBounds(result);
-                    return getSizeInContainer(target, result, child, usage);
-                }
-            }
-
-            unreachable;
-        }
-
-        pub fn budImpl(mon: *Monitor) void {
-            var containerUsage = [_]bool{false} ** containers.ids.len;
-
-            for (clients.items) |client| {
-                if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
-                    if (client.container == 0) {
-                        client.container = 1;
-                    }
-
-                    if (!client.isfloating and !client.isfullscreen)
-                        containerUsage[client.container - 1] = true;
-                }
-            }
-
-            var win = mon.w;
-            const starty = win.y;
-            win.x += ogapps;
-            win.y += ogapps;
-            win.width -= ogapps * 2;
-            win.height -= ogapps * 2;
-
-            for (clients.items) |client| {
-                client.frame = true;
-                if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and (!client.isfloating and !client.isfullscreen)) {
-                    var new = getSizeInContainer(client.container, win, containers, containerUsage);
-                    if (new.y == starty and mon.w.y != mon.m.y) client.frame = false;
-                    new.x += igapps;
-                    new.y += igapps;
-                    new.width -= igapps * 2;
-                    new.height -= igapps * 2;
-                    resize(client, new, false);
-                }
+    for (container.children) |child| {
+        var good: bool = false;
+        for (child.ids) |id| {
+            if (usage[id - 1]) {
+                good = true;
             }
         }
-    }.budImpl;
+        if (good)
+            childrenUsed += 1;
+    }
+
+    if (idsUsed == 1) return result;
+    for (container.children) |child| {
+        if (std.mem.containsAtLeast(u8, child.ids, 1, &.{target})) {
+            if (childrenUsed != 1)
+                result = getContainerBounds(child, result);
+            return budGetSizeInContainer(target, result, child, usage);
+        }
+    }
+
+    unreachable;
+}
+
+pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config.Container) void {
+    var containerUsage: []bool = allocator.alloc(bool, container.ids.len) catch unreachable;
+    defer allocator.free(containerUsage);
+
+    for (clients.items) |client| {
+        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
+            if (client.container == 0) {
+                client.container = 1;
+            }
+
+            if (!client.isfloating and !client.isfullscreen)
+                containerUsage[client.container - 1] = true;
+        }
+    }
+
+    var win = mon.w;
+    const starty = win.y;
+    win.x += ogapps;
+    win.y += ogapps;
+    win.width -= ogapps * 2;
+    win.height -= ogapps * 2;
+
+    for (clients.items) |client| {
+        client.frame = true;
+        if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and (!client.isfloating and !client.isfullscreen)) {
+            var new = budGetSizeInContainer(client.container, win, container, containerUsage);
+            if (new.y == starty and mon.w.y != mon.m.y) client.frame = false;
+            new.x += igapps;
+            new.y += igapps;
+            new.width -= igapps * 2;
+            new.height -= igapps * 2;
+            resize(client, new, false);
+        }
+    }
 }
 
 pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
@@ -1037,8 +957,8 @@ pub fn arrange(mon: *Monitor) void {
 
     mon.ltsymbol = &mon.lt[mon.sellt].symbol;
 
-    if (mon.lt[mon.sellt].arrange != null)
-        mon.lt[mon.sellt].arrange.?(mon);
+    if (mon.lt[mon.sellt].container) |container|
+        bud(mon, mon.lt[mon.sellt].igapps, mon.lt[mon.sellt].ogapps, container);
 
     motionnotify(0, null, 0, 0, 0, 0);
 }
