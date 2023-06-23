@@ -303,6 +303,8 @@ var xwayland_ready: c.wl_listener = .{ .link = undefined, .notify = xwaylandread
 var new_xwayland_surface: c.wl_listener = .{ .link = undefined, .notify = createnotifyx11 };
 var idle_inhibitor_destroy: c.wl_listener = .{ .link = undefined, .notify = destroyidleinhibitor };
 var request_cursor: c.wl_listener = .{ .link = undefined, .notify = setcursor };
+var request_set_sel: c.wl_listener = .{ .link = undefined, .notify = setsel };
+var request_set_psel: c.wl_listener = .{ .link = undefined, .notify = setpsel };
 var request_start_drag: c.wl_listener = .{ .link = undefined, .notify = requeststartdrag };
 var start_drag: c.wl_listener = .{ .link = undefined, .notify = startdrag };
 var drag_icon_destroy: c.wl_listener = .{ .link = undefined, .notify = destroydragicon };
@@ -537,17 +539,20 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
 }
 
 pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
+    var tmpheight = if (client.hasframe) barheight + client.bw else 0;
+
     if (!client.isfullscreen) {
         var min: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         var max: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         client_get_size_hints(client, &min, &max);
+
         client.geom.width = @max(min.width + (2 * client.bw), client.geom.width);
-        client.geom.height = @max(min.height + (2 * client.bw), client.geom.height);
+        client.geom.height = @max(min.height + (2 * client.bw) + tmpheight, client.geom.height);
 
         if (max.width > 0 and !(2 * client.bw > 2147483647 - max.width))
             client.geom.width = @min(max.width + (2 * client.bw), client.geom.width);
         if (max.height > 0 and !(2 * client.bw > 2147483647 - max.height))
-            client.geom.height = @min(max.height + (2 * client.bw), client.geom.height);
+            client.geom.height = @min(max.height + (2 * client.bw) + tmpheight, client.geom.height);
     }
 
     if (client.geom.x > bbox.x + bbox.width)
@@ -559,7 +564,7 @@ pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
     if (client.geom.y + client.geom.height + 2 * client.bw < bbox.y)
         client.geom.y = bbox.y;
     if (client.geom.width < 2 * client.bw + 20) client.geom.width = 2 * client.bw + 20;
-    if (client.geom.height < 2 * client.bw + 20) client.geom.height = 2 * client.bw + 20;
+    if (client.geom.height < 2 * client.bw + 20) client.geom.height = 2 * client.bw + 20 + tmpheight;
 }
 
 pub fn client_get_size_hints(client: *Client, min: *c.wlr_box, max: *c.wlr_box) void {
@@ -1882,6 +1887,20 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
         client_update_frame(client, true);
 }
 
+pub fn setpsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = listener;
+
+    var event = @ptrCast(*c.wlr_seat_request_set_primary_selection_event, @alignCast(@alignOf(c.wlr_seat_request_set_primary_selection_event), data));
+    c.wlr_seat_set_primary_selection(seat, event.source, event.serial);
+}
+
+pub fn setsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
+    _ = listener;
+
+    var event = @ptrCast(*c.wlr_seat_request_set_selection_event, @alignCast(@alignOf(c.wlr_seat_request_set_selection_event), data));
+    c.wlr_seat_set_selection(seat, event.source, event.serial);
+}
+
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
@@ -2506,6 +2525,10 @@ pub fn xwaylandready(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
 }
 
 pub fn setup() !void {
+    var sa: c.struct_sigaction = .{ .sa_flags = c.SA_RESTART, .__sigaction_handler = .{ .sa_handler = sigchld }, .sa_mask = undefined, .sa_restorer = undefined };
+    _ = c.sigemptyset(&sa.sa_mask);
+    _ = c.sigaction(c.SIGCHLD, &sa, null);
+
     configData = try cfg.Config.source(".config/budland/budland.conf", allocator);
 
     dpy = c.wl_display_create() orelse {
@@ -2606,8 +2629,8 @@ pub fn setup() !void {
     c.wl_signal_add(&virtual_keyboard_mgr.events.new_virtual_keyboard, &new_virtual_keyboard);
     seat = c.wlr_seat_create(dpy, "seat0");
     c.wl_signal_add(&seat.events.request_set_cursor, &request_cursor);
-    // c.wl_signal_add(&seat.events.request_set_selection, &request_set_sel);
-    // c.wl_signal_add(&seat.events.request_set_primary_selection, &request_set_psel);
+    c.wl_signal_add(&seat.events.request_set_selection, &request_set_sel);
+    c.wl_signal_add(&seat.events.request_set_primary_selection, &request_set_psel);
     c.wl_signal_add(&seat.events.request_start_drag, &request_start_drag);
     c.wl_signal_add(&seat.events.start_drag, &start_drag);
 
@@ -2719,6 +2742,16 @@ pub fn run(startup_cmd: ?[]const u8) !void {
     c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
 
     c.wl_display_run(dpy);
+}
+
+pub fn sigchld(_: c_int) callconv(.C) void {
+    var in: c.siginfo_t = undefined;
+
+    while (c.waitid(c.P_ALL, 0, &in, c.WEXITED | c.WNOHANG | c.WNOWAIT) == 0 and
+        in._sifields._rt.si_pid != 0 and (in._sifields._rt.si_pid != xwayland.server.*.pid))
+    {
+        _ = c.waitpid(in._sifields._rt.si_pid, null, 0);
+    }
 }
 
 pub fn checkconstraintregion() void {

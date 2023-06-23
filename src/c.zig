@@ -13,6 +13,7 @@ pub usingnamespace @cImport({
     @cInclude("wlr/types/wlr_data_control_v1.h");
     @cInclude("wlr/types/wlr_data_device.h");
     @cInclude("wlr/types/wlr_gamma_control_v1.h");
+    @cInclude("wlr/types/wlr_primary_selection.h");
     @cInclude("wlr/types/wlr_primary_selection_v1.h");
     @cInclude("wlr/types/wlr_viewporter.h");
     @cInclude("wlr/types/wlr_single_pixel_buffer_v1.h");
