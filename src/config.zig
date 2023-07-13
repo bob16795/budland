@@ -5,7 +5,7 @@ const c = @import("c.zig");
 const gappso = 40;
 const gappsi = 15;
 
-const defChildren: []*const Config.Container = &.{};
+const defChildren = [_]*const Config.Container{};
 
 pub const Config = struct {
     const Self = @This();
@@ -89,6 +89,7 @@ pub const Config = struct {
     layouts: []Layout,
     keys: []KeyBind,
     buttons: []MouseBind,
+    font: []const u8 = "monospace",
 
     pub fn toCommand(iter: *std.mem.SplitIterator(u8, .sequence), allocator: std.mem.Allocator) !Command {
         var cmd = iter.next() orelse "???";
@@ -260,7 +261,7 @@ pub const Config = struct {
 
         const home = std.os.getenv("HOME") orelse "";
 
-        var file = (try std.fs.openDirAbsolute(home, .{})).openFile(path, .{}) catch return result;
+        var file = (try std.fs.openDirAbsolute(home, .{})).openFile(path, .{}) catch unreachable;
         defer file.close();
 
         var buf_reader = std.io.bufferedReader(file.reader());
@@ -283,6 +284,9 @@ pub const Config = struct {
                         .keysym = key.keysym,
                         .cmd = command,
                     };
+                } else if (std.mem.eql(u8, cmd, "font")) {
+                    var data = splitIter.rest();
+                    result.font = try allocator.dupeZ(u8, data);
                 } else if (std.mem.eql(u8, cmd, "mouse")) {
                     var binds = splitIter.next() orelse return error.NoCommand;
                     var command = try toCommand(&splitIter, allocator);
@@ -355,7 +359,7 @@ pub const Config = struct {
                             .x_end = x2,
                             .y_end = y2,
                             .ids = try allocator.dupe(u8, &.{id}),
-                            .children = defChildren,
+                            .children = &defChildren,
                         });
                     } else if (std.mem.eql(u8, conKind, "multi")) {
                         var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");

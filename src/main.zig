@@ -7,6 +7,7 @@ const buffers = @import("buffer.zig");
 pub var configData: cfg.Config = undefined;
 
 pub var barheight: i32 = 20;
+pub var fontsize: f64 = 16;
 pub var barpadding: i32 = 2;
 
 const sloppyfocus: bool = true;
@@ -16,7 +17,7 @@ const borderpx: i32 = 2;
 pub const tagcount = 4;
 
 const TAGMASK = ((@as(u32, 1) << tagcount) - 1);
-const bufferScale = 2.0;
+const bufferScale = 1.5;
 
 const gappso = 40;
 const gappsi = 15;
@@ -42,16 +43,6 @@ pub const useclib = true;
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
 
-//    // misc
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_exclam, .func = setcon, .arg = .{ .ui = 1 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_at, .func = setcon, .arg = .{ .ui = 2 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_numbersign, .func = setcon, .arg = .{ .ui = 3 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_dollar, .func = setcon, .arg = .{ .ui = 4 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_space, .func = togglefloating, .arg = .{ .i = 0 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_f, .func = togglefullscreen, .arg = .{ .i = 0 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_h, .func = cyclelayout, .arg = .{ .i = 1 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_H, .func = cyclelayout, .arg = .{ .i = -1 } },
-//
 //    // tags
 //    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
 //    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
@@ -165,7 +156,7 @@ pub const Monitor = struct {
     w: c.wlr_box,
 
     layers: [4]std.ArrayList(*LayerSurface),
-    lt: [2]*const cfg.Config.Layout,
+    lt: [2]usize,
 
     seltags: u32,
     sellt: u32,
@@ -341,7 +332,7 @@ fn budGetSizeInContainer(target: u8, currentSize: c.wlr_box, container: *const c
         }
     }
 
-    unreachable;
+    return result;
 }
 
 pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config.Container) void {
@@ -892,7 +883,6 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
                             }
 
                             xdg_surface = c.wlr_xdg_surface_from_wlr_surface(xdg_surface.*.unnamed_0.popup.*.parent);
-                            continue;
                         },
                         c.WLR_XDG_SURFACE_ROLE_TOPLEVEL => {
                             client = @as(?*Client, @ptrCast(@alignCast(xdg_surface.*.data)));
@@ -955,10 +945,10 @@ pub fn arrange(mon: *Monitor) void {
 
     c.wlr_scene_node_set_enabled(&mon.fullscreen_bg.node, client != null and client.?.isfullscreen);
 
-    mon.ltsymbol = &mon.lt[mon.sellt].symbol;
+    mon.ltsymbol = &configData.layouts[mon.lt[mon.sellt]].symbol;
 
-    if (mon.lt[mon.sellt].container) |container|
-        bud(mon, mon.lt[mon.sellt].igapps, mon.lt[mon.sellt].ogapps, container);
+    if (configData.layouts[mon.lt[mon.sellt]].container) |container|
+        bud(mon, configData.layouts[mon.lt[mon.sellt]].igapps, configData.layouts[mon.lt[mon.sellt]].ogapps, container);
 
     motionnotify(0, null, 0, 0, 0, 0);
 }
@@ -1065,7 +1055,7 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
         .fullscreen_bg = undefined,
         .ltsymbol = &bad,
         .layers = undefined,
-        .lt = .{ &configData.layouts[0], &configData.layouts[0] },
+        .lt = .{ 0, 0 },
     });
     wlr_output.data = m;
 
@@ -1116,7 +1106,7 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
         c.wlr_output_layout_add(output_layout, wlr_output, m.m.x, m.m.y);
     }
 
-    m.ltsymbol = &m.lt[m.sellt].symbol;
+    m.ltsymbol = &configData.layouts[m.lt[m.sellt]].symbol;
 }
 
 pub fn rendermon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1368,7 +1358,9 @@ pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callco
 
     layersurface.scene_layer = c.wlr_scene_layer_surface_v1_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))), wlr_layer_surface);
     layersurface.scene = layersurface.scene_layer.tree;
-    layersurface.popups = c.wlr_scene_tree_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))));
+    std.debug.print("LAYER {}\n", .{wlr_layer_surface.pending.layer});
+    layersurface.popups = c.wlr_scene_tree_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)));
+    wlr_layer_surface.surface.*.data = layersurface.popups;
 
     layersurface.scene.node.data = layersurface;
 
@@ -1455,7 +1447,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
     if (xdg_surface.role == c.WLR_XDG_SURFACE_ROLE_POPUP) {
         var box: c.wlr_box = undefined;
-        var client: ?*Client = undefined;
+        var client: ?*Client = null;
 
         var kind = toplevel_from_wlr_surface(xdg_surface.surface, &client, &l);
 
@@ -1465,7 +1457,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
         xdg_surface.surface.*.data = c.wlr_scene_xdg_surface_create(scene_tree, xdg_surface);
 
-        if ((l != null and l.?.mon == null) or (client.?.mon == null))
+        if ((l != null and l.?.mon == null) or (client != null and client.?.mon == null))
             return;
         box = if (kind == .LayerShell) l.?.mon.?.m else client.?.mon.?.w;
         box.x -= if (kind == .LayerShell) l.?.geom.x else client.?.geom.x;
@@ -1504,6 +1496,8 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 }
 
 pub fn client_update_frame(client: *Client, force: bool) void {
+    if (client_is_stopped(client)) return;
+
     if (client.geom.width == 0 or client.geom.height == 0) return;
 
     if (client.titlescene == null) {
@@ -1536,44 +1530,48 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         client.title = null;
     }
 
-    client.title = buffers.buffer_create_cairo(@as(u32, @intCast(client.geom.width)), @as(u32, @intCast(barheight + client.bw)), bufferScale, true);
+    client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw * 2), bufferScale, true);
 
     var cairo = client.title.?.cairo;
 
     var surf = c.cairo_get_target(cairo);
 
-    c.cairo_select_font_face(cairo, "CaskaydiaCovePL Nerd Font", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
-    c.cairo_set_font_size(cairo, @as(f64, @floatFromInt(barheight - 2 * barpadding)));
+    c.cairo_select_font_face(cairo, configData.font.ptr, c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_BOLD);
+    c.cairo_set_font_size(cairo, fontsize);
 
     var tabWidth: f64 = @as(f64, @floatFromInt(client.geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
 
     var currentTab: i32 = 0;
-    var palette = if (focused) configData.colors[0] else configData.colors[1];
     for (clients.items) |tabClient| {
         if (tabClient != client) {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
+        var palette = if (tabClient == client and focused) configData.colors[0] else configData.colors[1];
         c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
         c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(tabClient.bw)), tabWidth - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight)));
         c.cairo_fill(cairo);
 
-        c.cairo_move_to(cairo, @as(f64, @floatFromInt(tabClient.bw + barpadding)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(barheight - barpadding - tabClient.bw)));
         const title = client_get_title(tabClient) orelse "???";
+        var exts: c.cairo_text_extents_t = undefined;
+        c.cairo_text_extents(cairo, title.ptr, &exts);
+
+        var text_y = (@intToFloat(f64, barheight) - fontsize) / 2;
+
+        c.cairo_move_to(cairo, @intToFloat(f64, tabClient.bw + barpadding) + tabWidth * @intToFloat(f64, currentTab), text_y + fontsize);
         c.cairo_text_path(cairo, title.ptr);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_fill(cairo);
-        const default: []const u8 = "X";
+        const default: []const u8 = " ";
 
-        var tmpIcon = tabClient.icon orelse (client_get_title(tabClient) orelse default)[0..1];
+        var tmpIcon = tabClient.icon orelse default[0..1];
 
         var icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
         defer allocator.free(icon);
 
-        var exts: c.cairo_text_extents_t = undefined;
         c.cairo_text_extents(cairo, icon.ptr, &exts);
 
-        c.cairo_move_to(cairo, @as(f64, @floatFromInt(currentTab + 1)) * tabWidth - exts.width - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight - barpadding - tabClient.bw)));
+        c.cairo_move_to(cairo, @intToFloat(f64, currentTab + 1) * tabWidth - exts.width - @intToFloat(f64, tabClient.bw), text_y + fontsize);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_text_path(cairo, icon.ptr);
         c.cairo_fill(cairo);
@@ -1597,6 +1595,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     var client: *Client = undefined;
     client = c.wl_container_of(listener, client, "map");
+    std.debug.print("LAYER {}\n", .{@enumToInt(Layer.LyrTile)});
     client.scene = c.wlr_scene_tree_create(layers.get(.LyrTile));
     c.wlr_scene_node_set_enabled(&client.scene.node, client.type != .XDGShell);
     client.scene_surface = if (client.type == .XDGShell)
@@ -2277,20 +2276,20 @@ pub fn spawn(arg: *const cfg.Config.Arg) void {
 
 pub fn setlayout(arg: *const cfg.Config.Arg) void {
     if (selmon == null) return;
-    var lt = &configData.layouts[@as(usize, @intCast(arg.i))];
+    var lt = @intCast(usize, arg.i);
 
-    if (lt != selmon.?.lt[selmon.?.sellt])
+    if (arg.i != selmon.?.lt[selmon.?.sellt])
         selmon.?.sellt ^= 1;
     selmon.?.lt[selmon.?.sellt] = lt;
-    selmon.?.ltsymbol = &selmon.?.lt[selmon.?.sellt].symbol;
+    selmon.?.ltsymbol = &configData.layouts[selmon.?.lt[selmon.?.sellt]].symbol;
     arrange(selmon.?);
     printstatus();
 }
 
 pub fn cyclelayout(arg: *const cfg.Config.Arg) void {
     for (configData.layouts, 0..) |_, idx| {
-        if (&configData.layouts[idx] == selmon.?.lt[selmon.?.sellt]) {
-            var i = @as(i32, @intCast(idx));
+        if (idx == selmon.?.lt[selmon.?.sellt]) {
+            var i = @intCast(i32, idx);
             i += arg.i;
             i = @mod(i, @as(i32, @intCast(configData.layouts.len)));
             setlayout(&.{ .i = i });
@@ -2338,7 +2337,24 @@ pub fn togglefullscreen(arg: *const cfg.Config.Arg) void {
 
 pub fn reload(arg: *const cfg.Config.Arg) void {
     _ = arg;
-    configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
+    {
+        var newConfig = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
+
+        configData.colors = newConfig.colors;
+        configData.keys = newConfig.keys;
+        configData.buttons = newConfig.buttons;
+        configData.font = newConfig.font;
+
+        for (clients.items) |client| {
+            client_update_frame(client, true);
+            for (client.border) |border|
+                c.wlr_scene_rect_set_color(border, &configData.colors[if (client.framefocused) 0 else 1][0]);
+        }
+    }
+
+    for (mons) |monitor| {
+        arrange(monitor);
+    }
 }
 
 pub fn killclient(arg: *const cfg.Config.Arg) void {
@@ -2529,6 +2545,10 @@ pub fn setup() !void {
     _ = c.sigemptyset(&sa.sa_mask);
     _ = c.sigaction(c.SIGCHLD, &sa, null);
 
+    var ssa: c.struct_sigaction = .{ .sa_flags = c.SA_RESTART, .__sigaction_handler = .{ .sa_handler = sigusr1 }, .sa_mask = undefined, .sa_restorer = undefined };
+
+    _ = c.sigaction(c.SIGUSR1, &ssa, null);
+
     configData = try cfg.Config.source(".config/budland/budland.conf", allocator);
 
     dpy = c.wl_display_create() orelse {
@@ -2546,8 +2566,8 @@ pub fn setup() !void {
     layers.set(.LyrTile, c.wlr_scene_tree_create(&scene.*.tree));
     layers.set(.LyrFloat, c.wlr_scene_tree_create(&scene.*.tree));
     layers.set(.LyrFS, c.wlr_scene_tree_create(&scene.*.tree));
-    layers.set(.LyrOverlay, c.wlr_scene_tree_create(&scene.*.tree));
     layers.set(.LyrTop, c.wlr_scene_tree_create(&scene.*.tree));
+    layers.set(.LyrOverlay, c.wlr_scene_tree_create(&scene.*.tree));
     layers.set(.LyrDragIcon, c.wlr_scene_tree_create(&scene.*.tree));
     layers.set(.LyrBlock, c.wlr_scene_tree_create(&scene.*.tree));
 
@@ -2742,6 +2762,19 @@ pub fn run(startup_cmd: ?[]const u8) !void {
     c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
 
     c.wl_display_run(dpy);
+}
+
+pub fn sigusr1(_: c_int) callconv(.C) void {
+    var newConfig = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
+
+    configData.colors = newConfig.colors;
+    //configData.keys = newConfig.keys;
+
+    for (clients.items) |client| {
+        client_update_frame(client, true);
+        for (client.border) |border|
+            c.wlr_scene_rect_set_color(border, &configData.colors[if (client.framefocused) 0 else 1][0]);
+    }
 }
 
 pub fn sigchld(_: c_int) callconv(.C) void {
