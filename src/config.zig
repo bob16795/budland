@@ -122,12 +122,12 @@ pub const Config = struct {
         } else if (std.mem.eql(u8, cmd, "resize")) {
             return .{
                 .func = main.moveresize,
-                .arg = .{ .ui = @enumToInt(main.Cursors.CurResize) },
+                .arg = .{ .ui = @intFromEnum(main.Cursors.CurResize) },
             };
         } else if (std.mem.eql(u8, cmd, "move")) {
             return .{
                 .func = main.moveresize,
-                .arg = .{ .ui = @enumToInt(main.Cursors.CurMove) },
+                .arg = .{ .ui = @intFromEnum(main.Cursors.CurMove) },
             };
         } else if (std.mem.eql(u8, cmd, "fullscreen")) {
             return .{
@@ -220,16 +220,16 @@ pub const Config = struct {
             } else if (key.len == 1) {
                 if (std.ascii.isAlphabetic(key[0])) {
                     if (result.mod & c.WLR_MODIFIER_SHIFT != 0) {
-                        result.keysym = @intCast(u32, c.XKB_KEY_A + std.ascii.toLower(key[0]) - 'a');
+                        result.keysym = @as(u32, @intCast(c.XKB_KEY_A + std.ascii.toLower(key[0]) - 'a'));
                     } else {
-                        result.keysym = @intCast(u32, c.XKB_KEY_a + std.ascii.toLower(key[0]) - 'a');
+                        result.keysym = @as(u32, @intCast(c.XKB_KEY_a + std.ascii.toLower(key[0]) - 'a'));
                     }
                 } else if (std.ascii.isDigit(key[0])) {
                     if (result.mod & c.WLR_MODIFIER_SHIFT != 0) {
                         const shift = [_]u32{ c.XKB_KEY_topleftparens, c.XKB_KEY_exclam, c.XKB_KEY_at, c.XKB_KEY_numbersign, c.XKB_KEY_dollar };
                         result.keysym = shift[std.ascii.toLower(key[0]) - '0'];
                     } else {
-                        result.keysym = @intCast(u32, c.XKB_KEY_0 + std.ascii.toLower(key[0]) - '0');
+                        result.keysym = @as(u32, @intCast(c.XKB_KEY_0 + std.ascii.toLower(key[0]) - '0'));
                     }
                 } else {
                     std.log.info("{s}", .{key});
@@ -414,10 +414,10 @@ pub const Config = struct {
                     else
                         return error.NoCommand;
                     var color = try std.fmt.parseInt(u32, splitIter.next() orelse "0", 16);
-                    var r = @intToFloat(f32, (color >> 24) & 0xff) / 255;
-                    var g = @intToFloat(f32, (color >> 16) & 0xff) / 255;
-                    var b = @intToFloat(f32, (color >> 8) & 0xff) / 255;
-                    var a = @intToFloat(f32, (color >> 0) & 0xff) / 255;
+                    var r = @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255;
+                    var g = @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255;
+                    var b = @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255;
+                    var a = @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255;
                     result.colors[if (active) 0 else 1][kindId] = .{ r, g, b, a };
                 } else {
                     return error.NoCommand;

@@ -109,25 +109,25 @@ fn getContainerBounds(self: *const cfg.Config.Container, screen: c.wlr_box) c.wl
     var result: c.wlr_box = undefined;
 
     result.x = screen.x + if (self.x_start <= 1.0)
-        @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_start)
+        @as(c_int, @intFromFloat(@as(f32, @floatFromInt(screen.width)) * self.x_start))
     else
-        @floatToInt(c_int, self.x_start);
+        @as(c_int, @intFromFloat(self.x_start));
 
     result.width = screen.x + if (self.x_end <= 1.0)
-        @floatToInt(c_int, @intToFloat(f32, screen.width) * self.x_end)
+        @as(c_int, @intFromFloat(@as(f32, @floatFromInt(screen.width)) * self.x_end))
     else
-        @floatToInt(c_int, self.x_end);
+        @as(c_int, @intFromFloat(self.x_end));
     result.width -= result.x;
 
     result.y = screen.y + if (self.y_start <= 1.0)
-        @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_start)
+        @as(c_int, @intFromFloat(@as(f32, @floatFromInt(screen.height)) * self.y_start))
     else
-        @floatToInt(c_int, self.y_start);
+        @as(c_int, @intFromFloat(self.y_start));
 
     result.height = screen.y + if (self.y_end <= 1.0)
-        @floatToInt(c_int, @intToFloat(f32, screen.height) * self.y_end)
+        @as(c_int, @intFromFloat(@as(f32, @floatFromInt(screen.height)) * self.y_end))
     else
-        @floatToInt(c_int, self.y_end);
+        @as(c_int, @intFromFloat(self.y_end));
     result.height -= result.y;
 
     return result;
@@ -418,9 +418,9 @@ pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
         c.wlr_scene_rect_set_size(m.fullscreen_bg, m.m.width, m.m.height);
 
         if (m.lock_surface) |lock_surface| {
-            var scene_tree = @ptrCast(*c.wlr_scene_tree, @alignCast(@alignOf(c.wlr_scene_tree), lock_surface.surface.*.data));
+            var scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(lock_surface.surface.*.data)));
             c.wlr_scene_node_set_position(&scene_tree.node, m.m.x, m.m.y);
-            _ = c.wlr_session_lock_surface_v1_configure(lock_surface, @intCast(u32, m.m.width), @intCast(u32, m.m.height));
+            _ = c.wlr_session_lock_surface_v1_configure(lock_surface, @as(u32, @intCast(m.m.width)), @as(u32, @intCast(m.m.height)));
         }
 
         arrangelayers(m);
@@ -525,10 +525,10 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
     if (client.type == .X11Managed or client.type == .X11Unmanaged) {
         c.wlr_xwayland_surface_configure(
             client.surface.xwayland,
-            @intCast(i16, client.geom.x),
-            @intCast(i16, client.geom.y),
-            @intCast(u16, w),
-            @intCast(u16, h),
+            @as(i16, @intCast(client.geom.x)),
+            @as(i16, @intCast(client.geom.y)),
+            @as(u16, @intCast(w)),
+            @as(u16, @intCast(h)),
         );
         return 0;
     }
@@ -610,7 +610,7 @@ pub fn arrangelayers(m: *Monitor) void {
         for (m.layers[layer].items) |layersurface| {
             if (!locked and layersurface.layer_surface.current.keyboard_interactive != 0 and layersurface.mapped) {
                 focusclient(null, false);
-                exclusive_focus = @ptrToInt(layersurface);
+                exclusive_focus = @intFromPtr(layersurface);
                 client_notify_enter(layersurface.layer_surface.surface, c.wlr_seat_get_keyboard(seat));
                 return;
             }
@@ -663,7 +663,7 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
         var kind = toplevel_from_wlr_surface(old, &w, &l);
         if (kind == .LayerShell and c.wlr_scene_node_coords(&l.?.scene.*.node, &unused_lx, &unused_ly) and l.?.layer_surface.*.current.layer >= c.ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
             return;
-        } else if (w != null and @ptrToInt(w) == exclusive_focus and client_wants_focus(w.?)) {
+        } else if (w != null and @intFromPtr(w) == exclusive_focus and client_wants_focus(w.?)) {
             return;
         } else if (w != null and w.?.type != .X11Unmanaged and (client == null or !client_wants_focus(client.?))) {
             for (w.?.border) |border| {
@@ -707,17 +707,17 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
         if (kind != .Undefined) {
             client = w;
             surface = seat.pointer_state.focused_surface;
-            sx = cursor.x - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.x else w.?.geom.x);
-            sy = cursor.y - @intToFloat(f64, if (kind == .LayerShell) l.?.geom.y else w.?.geom.y);
+            sx = cursor.x - @as(f64, @floatFromInt(if (kind == .LayerShell) l.?.geom.x else w.?.geom.x));
+            sy = cursor.y - @as(f64, @floatFromInt(if (kind == .LayerShell) l.?.geom.y else w.?.geom.y));
             if (kind != .LayerShell) {
-                sy -= @intToFloat(f64, if (w.?.hasframe) (barheight + w.?.bw * 2) else 0);
-                sx -= @intToFloat(f64, if (w.?.hasframe) (w.?.bw) else 0);
+                sy -= @as(f64, @floatFromInt(if (w.?.hasframe) (barheight + w.?.bw * 2) else 0));
+                sx -= @as(f64, @floatFromInt(if (w.?.hasframe) (w.?.bw) else 0));
             }
         }
     }
 
     if (time > 0) {
-        c.wlr_relative_pointer_manager_v1_send_relative_motion(relative_pointer_mgr, seat, @intCast(u64, time) * 1000, dx, dy, dx_unaccel, dy_unaccel);
+        c.wlr_relative_pointer_manager_v1_send_relative_motion(relative_pointer_mgr, seat, @as(u64, @intCast(time)) * 1000, dx, dy, dx_unaccel, dy_unaccel);
 
         var constraint: *c.wlr_pointer_constraint_v1 = undefined;
         constraint = c.wl_container_of(pointer_constraints.constraints.next, constraint, "link");
@@ -751,14 +751,14 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
 
     if (seat.drag != null and (seat.drag.*.icon != null)) {
         icon = seat.drag.*.icon;
-        c.wlr_scene_node_set_position(@ptrCast(*c.wlr_scene_node, @alignCast(@alignOf(c.wlr_scene_node), icon.?.data)), @floatToInt(i32, cursor.x) + icon.?.surface.*.sx, @floatToInt(i32, cursor.y) + icon.?.surface.*.sy);
+        c.wlr_scene_node_set_position(@as(*c.wlr_scene_node, @ptrCast(@alignCast(icon.?.data))), @as(i32, @intFromFloat(cursor.x)) + icon.?.surface.*.sx, @as(i32, @intFromFloat(cursor.y)) + icon.?.surface.*.sy);
     }
 
     if (cursor_mode == .CurMove) {
-        resize(grabc.?, .{ .x = @floatToInt(i32, cursor.x) - grabcx, .y = @floatToInt(i32, cursor.y) - grabcy, .width = grabc.?.geom.width, .height = grabc.?.geom.height }, true);
+        resize(grabc.?, .{ .x = @as(i32, @intFromFloat(cursor.x)) - grabcx, .y = @as(i32, @intFromFloat(cursor.y)) - grabcy, .width = grabc.?.geom.width, .height = grabc.?.geom.height }, true);
         return;
     } else if (cursor_mode == .CurResize) {
-        resize(grabc.?, .{ .x = grabc.?.geom.x, .y = grabc.?.geom.y, .width = @floatToInt(i32, cursor.x) - grabc.?.geom.x, .height = @floatToInt(i32, cursor.y) - grabc.?.geom.y }, true);
+        resize(grabc.?, .{ .x = grabc.?.geom.x, .y = grabc.?.geom.y, .width = @as(i32, @intFromFloat(cursor.x)) - grabc.?.geom.x, .height = @as(i32, @intFromFloat(cursor.y)) - grabc.?.geom.y }, true);
         return;
     }
 
@@ -788,12 +788,12 @@ pub fn xytonode(x: f64, y: f64, psurface: ?*?*c.wlr_surface, pc: ?*?*Client, pl:
 
         var pnode = node;
         while (pnode != null and client == null) : (pnode = &pnode.?.parent.*.node) {
-            client = @ptrCast(?*Client, @alignCast(@alignOf(Client), pnode.?.data));
+            client = @as(?*Client, @ptrCast(@alignCast(pnode.?.data)));
         }
 
         if (client != null and client.?.type == .LayerShell) {
             client = null;
-            l = @ptrCast(?*LayerSurface, @alignCast(@alignOf(LayerSurface), pnode.?.data));
+            l = @as(?*LayerSurface, @ptrCast(@alignCast(pnode.?.data)));
         }
 
         if (surface != null) break;
@@ -826,7 +826,7 @@ pub fn pointerfocus(client: ?*Client, surface: ?*c.wlr_surface, sx: f64, sy: f64
     }
 
     c.wlr_seat_pointer_notify_enter(seat, surface, sx, sy);
-    c.wlr_seat_pointer_notify_motion(seat, @intCast(u32, atime), sx, sy);
+    c.wlr_seat_pointer_notify_motion(seat, @as(u32, @intCast(atime)), sx, sy);
 }
 
 pub fn client_activate_surface(s: *c.wlr_surface, activated: bool) void {
@@ -864,7 +864,7 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
         if (c.wlr_surface_is_xwayland_surface(root_surface)) {
             var xsurface = c.wlr_xwayland_surface_from_wlr_surface(root_surface);
             if (xsurface != null) {
-                client = @ptrCast(?*Client, @alignCast(@alignOf(Client), xsurface.*.data));
+                client = @as(?*Client, @ptrCast(@alignCast(xsurface.*.data)));
                 kind = client.?.type;
                 break :start;
             }
@@ -873,7 +873,7 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
         if (c.wlr_surface_is_layer_surface(root_surface)) {
             var layer_surface = c.wlr_layer_surface_v1_from_wlr_surface(root_surface);
             if (layer_surface != null) {
-                l = @ptrCast(?*LayerSurface, @alignCast(@alignOf(LayerSurface), layer_surface.*.data));
+                l = @as(?*LayerSurface, @ptrCast(@alignCast(layer_surface.*.data)));
                 kind = .LayerShell;
                 break :start;
             }
@@ -895,7 +895,7 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
                             continue;
                         },
                         c.WLR_XDG_SURFACE_ROLE_TOPLEVEL => {
-                            client = @ptrCast(?*Client, @alignCast(@alignOf(Client), xdg_surface.*.data));
+                            client = @as(?*Client, @ptrCast(@alignCast(xdg_surface.*.data)));
                             kind = client.?.type;
                             break :start;
                         },
@@ -975,7 +975,7 @@ pub fn checkidleinhibitor(exclude: ?*c.wlr_surface) void {
         inhibitor = c.wl_container_of(inhibitor.link.next, inhibitor, "link");
 
         var surface = c.wlr_surface_get_root_surface(inhibitor.*.surface);
-        var tree = @ptrCast(?*c.wlr_scene_tree, @alignCast(@alignOf(c.wlr_scene_tree), surface.*.data));
+        var tree = @as(?*c.wlr_scene_tree, @ptrCast(@alignCast(surface.*.data)));
         if (exclude != surface and (bypass_surface_visibility or (tree == null or c.wlr_scene_node_coords(&tree.?.node, &unused_lx, &unused_ly)))) {
             inhibited = true;
             break;
@@ -1055,7 +1055,7 @@ pub fn client_set_fullscreen(client: *Client, fullscreen: bool) void {
 var bad: []const u8 = "???";
 
 pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    var wlr_output = @ptrCast(*c.wlr_output, @alignCast(@alignOf(c.wlr_output), data));
+    var wlr_output = @as(*c.wlr_output, @ptrCast(@alignCast(data)));
     var m = allocator.create(Monitor) catch {
         return;
     };
@@ -1160,7 +1160,7 @@ pub fn client_is_stopped(client: *Client) bool {
     var in: c.siginfo_t = std.mem.zeroInit(c.siginfo_t, .{});
 
     c.wl_client_get_credentials(client.surface.xdg.client.*.client, &pid, null, null);
-    var r = c.waitid(c.P_PID, @intCast(u32, pid), &in, c.WNOHANG | c.WCONTINUED | c.WSTOPPED | c.WNOWAIT);
+    var r = c.waitid(c.P_PID, @as(u32, @intCast(pid)), &in, c.WNOHANG | c.WCONTINUED | c.WSTOPPED | c.WNOWAIT);
     if (r < 0) {
         if (r == c.ECHILD)
             return true;
@@ -1207,7 +1207,7 @@ pub fn cleanupmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) v
 pub fn createidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var idle_inhibitor = @ptrCast(*c.wlr_idle_inhibitor_v1, @alignCast(@alignOf(c.wlr_idle_inhibitor_v1), data));
+    var idle_inhibitor = @as(*c.wlr_idle_inhibitor_v1, @ptrCast(@alignCast(data)));
     c.wl_signal_add(&idle_inhibitor.events.destroy, &idle_inhibitor_destroy);
 
     checkidleinhibitor(null);
@@ -1216,7 +1216,7 @@ pub fn createidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callc
 pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var surface = @ptrCast(*c.wlr_surface, @alignCast(@alignOf(c.wlr_surface), data));
+    var surface = @as(*c.wlr_surface, @ptrCast(@alignCast(data)));
     var root_surface = c.wlr_surface_get_root_surface(surface);
 
     checkidleinhibitor(root_surface);
@@ -1225,7 +1225,7 @@ pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) call
 pub fn createpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var wlr_constraint = @ptrCast(*c.wlr_pointer_constraint_v1, @alignCast(@alignOf(c.wlr_pointer_constraint_v1), data));
+    var wlr_constraint = @as(*c.wlr_pointer_constraint_v1, @ptrCast(@alignCast(data)));
     var constraint = allocator.create(PointerConstraint) catch unreachable;
     var sel = focustop(selmon);
 
@@ -1244,7 +1244,7 @@ pub fn createpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) c
 }
 
 pub fn cursorconstrain(wlr_constraint: *c.wlr_pointer_constraint_v1) void {
-    var constraint = @ptrCast(*PointerConstraint, @alignCast(@alignOf(PointerConstraint), wlr_constraint.data));
+    var constraint = @as(*PointerConstraint, @ptrCast(@alignCast(wlr_constraint.data)));
 
     if (active_constraint == constraint)
         return;
@@ -1292,8 +1292,8 @@ pub fn cursorwarptoconstrainthint() void {
         var client: ?*Client = null;
         _ = toplevel_from_wlr_surface(constraint.surface, &client, null);
         if (client) |cli| {
-            lx -= @intToFloat(f64, cli.geom.x);
-            ly -= @intToFloat(f64, cli.geom.y);
+            lx -= @as(f64, @floatFromInt(cli.geom.x));
+            ly -= @as(f64, @floatFromInt(cli.geom.y));
         }
 
         _ = c.wlr_cursor_warp(cursor, null, lx, ly);
@@ -1343,7 +1343,7 @@ pub fn commitpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) c
 pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var wlr_layer_surface = @ptrCast(*c.wlr_layer_surface_v1, @alignCast(@alignOf(c.wlr_layer_surface_v1), data));
+    var wlr_layer_surface = @as(*c.wlr_layer_surface_v1, @ptrCast(@alignCast(data)));
     if (wlr_layer_surface.output == null)
         wlr_layer_surface.output = if (selmon != null) selmon.?.output else null;
 
@@ -1363,12 +1363,12 @@ pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callco
     c.wl_signal_add(&wlr_layer_surface.events.unmap, &layersurface.unmap);
 
     layersurface.layer_surface = wlr_layer_surface;
-    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), wlr_layer_surface.output.*.data));
+    layersurface.mon = @as(*Monitor, @ptrCast(@alignCast(wlr_layer_surface.output.*.data)));
     wlr_layer_surface.data = layersurface;
 
-    layersurface.scene_layer = c.wlr_scene_layer_surface_v1_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)), wlr_layer_surface);
+    layersurface.scene_layer = c.wlr_scene_layer_surface_v1_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))), wlr_layer_surface);
     layersurface.scene = layersurface.scene_layer.tree;
-    layersurface.popups = c.wlr_scene_tree_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)));
+    layersurface.popups = c.wlr_scene_tree_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))));
 
     layersurface.scene.node.data = layersurface;
 
@@ -1388,12 +1388,12 @@ pub fn commitlayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) cal
     var wlr_layer_surface = layersurface.layer_surface;
     var wlr_output = wlr_layer_surface.output;
 
-    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), wlr_output.*.data));
+    layersurface.mon = @as(*Monitor, @ptrCast(@alignCast(wlr_output.*.data)));
 
     if (wlr_output == null)
         return;
 
-    var lyr = layers.get(@intToEnum(Layer, wlr_layer_surface.current.layer));
+    var lyr = layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.current.layer)));
     if (lyr != layersurface.scene.node.parent) {
         c.wlr_scene_node_reparent(&layersurface.scene.node, lyr);
         c.wlr_scene_node_reparent(&layersurface.popups.node, lyr);
@@ -1440,9 +1440,9 @@ pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) call
 
     layersurface.mapped = false;
     c.wlr_scene_node_set_enabled(&layersurface.scene.node, false);
-    if (@ptrToInt(layersurface) == exclusive_focus)
+    if (@intFromPtr(layersurface) == exclusive_focus)
         exclusive_focus = null;
-    layersurface.mon = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), layersurface.layer_surface.output.*.data));
+    layersurface.mon = @as(*Monitor, @ptrCast(@alignCast(layersurface.layer_surface.output.*.data)));
     if (layersurface.layer_surface.*.output != null and layersurface.mon != null)
         arrangelayers(layersurface.mon.?);
     motionnotify(0, null, 0, 0, 0, 0);
@@ -1450,7 +1450,7 @@ pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) call
 
 pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var xdg_surface = @ptrCast(*c.wlr_xdg_surface, @alignCast(@alignOf(c.wlr_xdg_surface), data));
+    var xdg_surface = @as(*c.wlr_xdg_surface, @ptrCast(@alignCast(data)));
     var l: ?*LayerSurface = null;
 
     if (xdg_surface.role == c.WLR_XDG_SURFACE_ROLE_POPUP) {
@@ -1461,7 +1461,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
         if (xdg_surface.unnamed_0.popup.*.parent == null or kind == .Undefined)
             return;
-        var scene_tree: *c.wlr_scene_tree = @ptrCast(*c.wlr_scene_tree, @alignCast(@alignOf(c.wlr_scene_tree), xdg_surface.unnamed_0.popup.*.parent.*.data));
+        var scene_tree: *c.wlr_scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(xdg_surface.unnamed_0.popup.*.parent.*.data)));
 
         xdg_surface.surface.*.data = c.wlr_scene_xdg_surface_create(scene_tree, xdg_surface);
 
@@ -1536,16 +1536,16 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         client.title = null;
     }
 
-    client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw), bufferScale, true);
+    client.title = buffers.buffer_create_cairo(@as(u32, @intCast(client.geom.width)), @as(u32, @intCast(barheight + client.bw)), bufferScale, true);
 
     var cairo = client.title.?.cairo;
 
     var surf = c.cairo_get_target(cairo);
 
     c.cairo_select_font_face(cairo, "CaskaydiaCovePL Nerd Font", c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
-    c.cairo_set_font_size(cairo, @intToFloat(f64, barheight - 2 * barpadding));
+    c.cairo_set_font_size(cairo, @as(f64, @floatFromInt(barheight - 2 * barpadding)));
 
-    var tabWidth: f64 = @intToFloat(f64, client.geom.width - client.bw) / @intToFloat(f64, client.frameTabs);
+    var tabWidth: f64 = @as(f64, @floatFromInt(client.geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
 
     var currentTab: i32 = 0;
     var palette = if (focused) configData.colors[0] else configData.colors[1];
@@ -1555,10 +1555,10 @@ pub fn client_update_frame(client: *Client, force: bool) void {
             if (client.container != tabClient.container) continue;
         }
         c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
-        c.cairo_rectangle(cairo, @intToFloat(f64, tabClient.bw) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, tabClient.bw), tabWidth - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight));
+        c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(tabClient.bw)), tabWidth - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight)));
         c.cairo_fill(cairo);
 
-        c.cairo_move_to(cairo, @intToFloat(f64, tabClient.bw + barpadding) + tabWidth * @intToFloat(f64, currentTab), @intToFloat(f64, barheight - barpadding - tabClient.bw));
+        c.cairo_move_to(cairo, @as(f64, @floatFromInt(tabClient.bw + barpadding)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(barheight - barpadding - tabClient.bw)));
         const title = client_get_title(tabClient) orelse "???";
         c.cairo_text_path(cairo, title.ptr);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
@@ -1573,7 +1573,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         var exts: c.cairo_text_extents_t = undefined;
         c.cairo_text_extents(cairo, icon.ptr, &exts);
 
-        c.cairo_move_to(cairo, @intToFloat(f64, currentTab + 1) * tabWidth - exts.width - @intToFloat(f64, tabClient.bw), @intToFloat(f64, barheight - barpadding - tabClient.bw));
+        c.cairo_move_to(cairo, @as(f64, @floatFromInt(currentTab + 1)) * tabWidth - exts.width - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight - barpadding - tabClient.bw)));
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_text_path(cairo, icon.ptr);
         c.cairo_fill(cairo);
@@ -1586,7 +1586,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
     c.wlr_scene_buffer_set_buffer(client.titlescene, &client.title.?.base);
 
     if (client.hasframe) {
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @intCast(i32, client.geom.width), @intCast(i32, client.title.?.unscaled_height));
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @as(i32, @intCast(client.geom.width)), @as(i32, @intCast(client.title.?.unscaled_height)));
     } else {
         c.wlr_scene_buffer_set_dest_size(client.titlescene.?, 1, 1);
     }
@@ -1622,7 +1622,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
             if (client_wants_focus(client)) {
                 focusclient(client, true);
-                exclusive_focus = @ptrToInt(client);
+                exclusive_focus = @intFromPtr(client);
             }
             break :before;
         }
@@ -1655,7 +1655,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
         printstatus();
     }
 
-    var mon = client.mon orelse xytomon(@intToFloat(f64, client.geom.x), @intToFloat(f64, client.geom.y));
+    var mon = client.mon orelse xytomon(@as(f64, @floatFromInt(client.geom.x)), @as(f64, @floatFromInt(client.geom.y)));
     for (clients.items) |w|
         if (w != client and w.isfullscreen and mon == w.mon and (w.tags & client.tags != 0))
             setfullscreen(w, false);
@@ -1808,7 +1808,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
     }
 
     if (client.type == .X11Unmanaged) {
-        if (@ptrToInt(client) == exclusive_focus)
+        if (@intFromPtr(client) == exclusive_focus)
             exclusive_focus = null;
         if (client_surface(client) == seat.keyboard_state.focused_surface)
             focusclient(client, true);
@@ -1829,7 +1829,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn outputmgrapply(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var config = @ptrCast(*c.wlr_output_configuration_v1, @alignCast(@alignOf(c.wlr_output_configuration_v1), data));
+    var config = @as(*c.wlr_output_configuration_v1, @ptrCast(@alignCast(data)));
 
     outputmgrapplyortest(config, false);
 }
@@ -1845,7 +1845,7 @@ pub fn outputmgrapplyortest(config: *c.wlr_output_configuration_v1, tst: bool) v
 
         var wlr_output = config_head.state.output;
         prefix: {
-            var m = @ptrCast(*Monitor, @alignCast(@alignOf(Monitor), wlr_output.*.data));
+            var m = @as(*Monitor, @ptrCast(@alignCast(wlr_output.*.data)));
             c.wlr_output_enable(wlr_output, config_head.state.enabled);
             if (!config_head.state.enabled) break :prefix;
             if (config_head.state.mode != 0) {
@@ -1890,21 +1890,21 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn setpsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @ptrCast(*c.wlr_seat_request_set_primary_selection_event, @alignCast(@alignOf(c.wlr_seat_request_set_primary_selection_event), data));
+    var event = @as(*c.wlr_seat_request_set_primary_selection_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_set_primary_selection(seat, event.source, event.serial);
 }
 
 pub fn setsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @ptrCast(*c.wlr_seat_request_set_selection_event, @alignCast(@alignOf(c.wlr_seat_request_set_selection_event), data));
+    var event = @as(*c.wlr_seat_request_set_selection_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_set_selection(seat, event.source, event.serial);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @ptrCast(*c.wlr_seat_pointer_request_set_cursor_event, @alignCast(@alignOf(c.wlr_seat_pointer_request_set_cursor_event), data));
+    var event = @as(*c.wlr_seat_pointer_request_set_cursor_event, @ptrCast(@alignCast(data)));
 
     if (cursor_mode != .CurNormal and cursor_mode != .CurPressed)
         return;
@@ -1963,7 +1963,7 @@ pub fn destroynotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
 
 pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var xsurface = @ptrCast(*c.wlr_xwayland_surface, @alignCast(@alignOf(c.wlr_xwayland_surface), data));
+    var xsurface = @as(*c.wlr_xwayland_surface, @ptrCast(@alignCast(data)));
 
     var client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
@@ -2011,7 +2011,7 @@ pub fn configurex11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     var client: *Client = undefined;
     client = c.wl_container_of(listener, client, "configure");
 
-    var event = @ptrCast(*c.wlr_xwayland_surface_configure_event, @alignCast(@alignOf(c.wlr_xwayland_surface_configure_event), data));
+    var event = @as(*c.wlr_xwayland_surface_configure_event, @ptrCast(@alignCast(data)));
     if (client.mon == null)
         return;
     if (client.isfloating or client.type == .X11Unmanaged)
@@ -2046,13 +2046,13 @@ pub fn destroysessionmgr(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void
 
 pub fn createdecoration(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var dec = @ptrCast(*c.wlr_xdg_toplevel_decoration_v1, @alignCast(@alignOf(c.wlr_xdg_toplevel_decoration_v1), data));
+    var dec = @as(*c.wlr_xdg_toplevel_decoration_v1, @ptrCast(@alignCast(data)));
     _ = c.wlr_xdg_toplevel_decoration_v1_set_mode(dec, c.WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 }
 
 pub fn requeststartdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var event = @ptrCast(*c.wlr_seat_request_start_drag_event, @alignCast(@alignOf(c.wlr_seat_request_start_drag_event), data));
+    var event = @as(*c.wlr_seat_request_start_drag_event, @ptrCast(@alignCast(data)));
     if (c.wlr_seat_validate_pointer_grab_serial(seat, event.origin, event.serial))
         c.wlr_seat_start_pointer_drag(seat, event.drag, event.serial)
     else
@@ -2061,7 +2061,7 @@ pub fn requeststartdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv
 
 pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var drag = @ptrCast(*c.wlr_drag, @alignCast(@alignOf(c.wlr_drag), data));
+    var drag = @as(*c.wlr_drag, @ptrCast(@alignCast(data)));
 
     if (drag.icon == null) return;
 
@@ -2072,9 +2072,9 @@ pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
 pub fn destroydragicon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var icon = @ptrCast(*c.wlr_drag_icon, @alignCast(@alignOf(c.wlr_drag_icon), data));
+    var icon = @as(*c.wlr_drag_icon, @ptrCast(@alignCast(data)));
 
-    c.wlr_scene_node_destroy(@ptrCast(*c.wlr_scene_node, @alignCast(@alignOf(c.wlr_scene_node), icon.data)));
+    c.wlr_scene_node_destroy(@as(*c.wlr_scene_node, @ptrCast(@alignCast(icon.data))));
 
     focusclient(focustop(selmon), true);
     motionnotify(0, null, 0, 0, 0, 0);
@@ -2083,7 +2083,7 @@ pub fn destroydragicon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
 pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @ptrCast(*c.wlr_pointer_motion_event, @alignCast(@alignOf(c.wlr_pointer_motion_event), data));
+    var event = @as(*c.wlr_pointer_motion_event, @ptrCast(@alignCast(data)));
 
     motionnotify(event.time_msec, &event.pointer.*.base, event.delta_x, event.delta_y, event.unaccel_dx, event.unaccel_dy);
 }
@@ -2091,7 +2091,7 @@ pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @ptrCast(*c.wlr_pointer_motion_absolute_event, @alignCast(@alignOf(c.wlr_pointer_motion_absolute_event), data));
+    var event = @as(*c.wlr_pointer_motion_absolute_event, @ptrCast(@alignCast(data)));
 
     var lx: f64 = undefined;
     var ly: f64 = undefined;
@@ -2106,7 +2106,7 @@ pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 
 pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var event = @ptrCast(*c.wlr_pointer_button_event, @alignCast(@alignOf(c.wlr_pointer_button_event), data));
+    var event = @as(*c.wlr_pointer_button_event, @ptrCast(@alignCast(data)));
 
     c.wlr_idle_notify_activity(idle, seat);
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
@@ -2156,7 +2156,7 @@ pub fn axisnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) v
     c.wlr_idle_notify_activity(idle, seat);
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
-    var event = @ptrCast(*c.wlr_pointer_axis_event, @alignCast(@alignOf(c.wlr_pointer_axis_event), data));
+    var event = @as(*c.wlr_pointer_axis_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_pointer_notify_axis(seat, event.time_msec, event.orientation, event.delta, event.delta_discrete, event.source);
 }
 
@@ -2182,7 +2182,7 @@ pub fn keypressmod(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     var kb: *Keyboard = undefined;
     kb = c.wl_container_of(listener, kb, "key");
-    var event = @ptrCast(*c.wlr_keyboard_key_event, @alignCast(@alignOf(c.wlr_keyboard_key_event), data));
+    var event = @as(*c.wlr_keyboard_key_event, @ptrCast(@alignCast(data)));
     var keycode: u32 = event.keycode + 8;
     var syms: [*c]const u32 = undefined;
     var nsyms = c.xkb_state_key_get_syms(kb.wlr_keyboard.xkb_state, keycode, &syms);
@@ -2194,7 +2194,7 @@ pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) voi
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
     if (!locked and input_inhibit_mgr.active_inhibitor == null and event.state == c.WL_KEYBOARD_KEY_STATE_PRESSED) {
-        for (0..@intCast(usize, nsyms), syms) |_, sym| {
+        for (0..@as(usize, @intCast(nsyms)), syms) |_, sym| {
             handled = keybinding(mods, sym) or handled;
         }
     }
@@ -2202,7 +2202,7 @@ pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) voi
     if (handled and kb.wlr_keyboard.repeat_info.delay > 0) {
         kb.mods = mods;
         kb.keysyms.ptr = syms;
-        kb.keysyms.len = @intCast(usize, nsyms);
+        kb.keysyms.len = @as(usize, @intCast(nsyms));
         _ = c.wl_event_source_timer_update(kb.key_repeat_source, kb.wlr_keyboard.repeat_info.delay);
     } else {
         kb.keysyms.len = 0;
@@ -2217,7 +2217,7 @@ pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) voi
 
 pub fn inputdevice(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var device = @ptrCast(*c.wlr_input_device, @alignCast(@alignOf(c.wlr_input_device), data));
+    var device = @as(*c.wlr_input_device, @ptrCast(@alignCast(data)));
 
     switch (device.type) {
         c.WLR_INPUT_DEVICE_KEYBOARD => createkeyboard(c.wlr_keyboard_from_input_device(device)),
@@ -2249,7 +2249,7 @@ pub fn keybinding(mods: u32, sym: c.xkb_keysym_t) bool {
 }
 
 pub fn keyrepeat(data: ?*anyopaque) callconv(.C) c_int {
-    var kb = @ptrCast(*Keyboard, @alignCast(@alignOf(Keyboard), data));
+    var kb = @as(*Keyboard, @ptrCast(@alignCast(data)));
 
     if (kb.keysyms.len != 0 and kb.wlr_keyboard.repeat_info.rate > 0) {
         _ = c.wl_event_source_timer_update(kb.key_repeat_source, @divTrunc(1000, kb.wlr_keyboard.repeat_info.rate));
@@ -2277,7 +2277,7 @@ pub fn spawn(arg: *const cfg.Config.Arg) void {
 
 pub fn setlayout(arg: *const cfg.Config.Arg) void {
     if (selmon == null) return;
-    var lt = &configData.layouts[@intCast(usize, arg.i)];
+    var lt = &configData.layouts[@as(usize, @intCast(arg.i))];
 
     if (lt != selmon.?.lt[selmon.?.sellt])
         selmon.?.sellt ^= 1;
@@ -2290,9 +2290,9 @@ pub fn setlayout(arg: *const cfg.Config.Arg) void {
 pub fn cyclelayout(arg: *const cfg.Config.Arg) void {
     for (configData.layouts, 0..) |_, idx| {
         if (&configData.layouts[idx] == selmon.?.lt[selmon.?.sellt]) {
-            var i = @intCast(i32, idx);
+            var i = @as(i32, @intCast(idx));
             i += arg.i;
-            i = @mod(i, @intCast(i32, configData.layouts.len));
+            i = @mod(i, @as(i32, @intCast(configData.layouts.len)));
             setlayout(&.{ .i = i });
             return;
         }
@@ -2358,11 +2358,11 @@ pub fn focusstack(arg: *const cfg.Config.Arg) void {
 
         var idx = std.mem.indexOf(*Client, clients.items, &.{selmonsel}) orelse return;
         var start = idx;
-        idx += @intCast(usize, arg.i);
+        idx += @as(usize, @intCast(arg.i));
         if (idx >= (clients.items.len)) idx = 0;
 
         while ((clients.items[idx].container != targ or clients.items[idx].mon != start_mon or clients.items[idx].isfloating) and idx != start) {
-            idx += @intCast(usize, arg.i);
+            idx += @as(usize, @intCast(arg.i));
             if (idx >= (clients.items.len)) idx = 0;
         }
         focusclient(clients.items[idx], true);
@@ -2380,17 +2380,17 @@ pub fn moveresize(arg: *const cfg.Config.Arg) void {
 
     setfloating(grabc.?, true);
 
-    cursor_mode = @intToEnum(Cursors, arg.ui);
+    cursor_mode = @as(Cursors, @enumFromInt(arg.ui));
     switch (cursor_mode) {
         .CurMove => {
-            grabcx = @floatToInt(i32, cursor.x) - grabc.?.geom.x;
-            grabcy = @floatToInt(i32, cursor.y) - grabc.?.geom.y;
+            grabcx = @as(i32, @intFromFloat(cursor.x)) - grabc.?.geom.x;
+            grabcy = @as(i32, @intFromFloat(cursor.y)) - grabc.?.geom.y;
 
             cursor_image = "fleur\x00";
             c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
         },
         .CurResize => {
-            c.wlr_cursor_warp_closest(cursor, null, @intToFloat(f64, grabc.?.geom.x + grabc.?.geom.width), @intToFloat(f64, grabc.?.geom.y + grabc.?.geom.height));
+            c.wlr_cursor_warp_closest(cursor, null, @as(f64, @floatFromInt(grabc.?.geom.x + grabc.?.geom.width)), @as(f64, @floatFromInt(grabc.?.geom.y + grabc.?.geom.height)));
 
             cursor_image = "bottom_right_corner\x00";
             c.wlr_xcursor_manager_set_cursor_image(cursor_mgr, cursor_image.?.ptr, cursor);
@@ -2402,7 +2402,7 @@ pub fn moveresize(arg: *const cfg.Config.Arg) void {
 pub fn setcon(arg: *const cfg.Config.Arg) void {
     var sel = focustop(selmon);
     if (sel != null) {
-        sel.?.container = @intCast(u8, arg.ui);
+        sel.?.container = @as(u8, @intCast(arg.ui));
         setfloating(sel.?, false);
 
         arrange(selmon.?);
@@ -2483,7 +2483,7 @@ pub fn createpointer(pointer: *c.wlr_pointer) void {
 
 pub fn getatom(xc: ?*c.xcb_connection_t, name: [*c]const u8) c.Atom {
     var atom: c.Atom = 0;
-    var cookie = c.xcb_intern_atom(xc, 0, @intCast(u16, c.strlen(name)), name);
+    var cookie = c.xcb_intern_atom(xc, 0, @as(u16, @intCast(c.strlen(name))), name);
     var reply = c.xcb_intern_atom_reply(xc, cookie, null) orelse return atom;
     atom = reply.*.atom;
     c.free(reply);
@@ -2516,8 +2516,8 @@ pub fn xwaylandready(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
             xcursor.*.images[0].*.width * 4,
             xcursor.*.images[0].*.width,
             xcursor.*.images[0].*.height,
-            @intCast(i32, xcursor.*.images[0].*.hotspot_x),
-            @intCast(i32, xcursor.*.images[0].*.hotspot_y),
+            @as(i32, @intCast(xcursor.*.images[0].*.hotspot_x)),
+            @as(i32, @intCast(xcursor.*.images[0].*.hotspot_y)),
         );
     }
 
@@ -2661,7 +2661,7 @@ pub fn xytomon(x: f64, y: f64) ?*Monitor {
     var o: *c.wlr_output = c.wlr_output_layout_output_at(output_layout, x, y) orelse {
         return null;
     };
-    return @ptrCast(?*Monitor, @alignCast(@alignOf(Monitor), o.data));
+    return @as(?*Monitor, @ptrCast(@alignCast(o.data)));
 }
 
 pub fn printstatus() void {
@@ -2766,17 +2766,17 @@ pub fn checkconstraintregion() void {
     if (active_confine_requires_warp and client != null) {
         active_confine_requires_warp = false;
 
-        sx = cursor.x + @intToFloat(f64, client.?.geom.x);
-        sy = cursor.y + @intToFloat(f64, client.?.geom.y);
+        sx = cursor.x + @as(f64, @floatFromInt(client.?.geom.x));
+        sy = cursor.y + @as(f64, @floatFromInt(client.?.geom.y));
 
-        if (c.pixman_region32_contains_point(region, @floatToInt(i32, sx), @floatToInt(i32, sy), null) != 0) {
+        if (c.pixman_region32_contains_point(region, @as(i32, @intFromFloat(sx)), @as(i32, @intFromFloat(sy)), null) != 0) {
             var nboxes: i32 = 0;
             var boxes = c.pixman_region32_rectangles(region, &nboxes);
             if (nboxes > 0) {
-                sx = @intToFloat(f64, @divFloor(boxes[0].x1 + boxes[0].x2, 2));
-                sy = @intToFloat(f64, @divFloor(boxes[0].y1 + boxes[0].y2, 2));
+                sx = @as(f64, @floatFromInt(@divFloor(boxes[0].x1 + boxes[0].x2, 2)));
+                sy = @as(f64, @floatFromInt(@divFloor(boxes[0].y1 + boxes[0].y2, 2)));
 
-                c.wlr_cursor_warp_closest(cursor, null, sx - @intToFloat(f64, client.?.geom.x), sy - @intToFloat(f64, client.?.geom.y));
+                c.wlr_cursor_warp_closest(cursor, null, sx - @as(f64, @floatFromInt(client.?.geom.x)), sy - @as(f64, @floatFromInt(client.?.geom.y)));
             }
         }
     }

@@ -48,13 +48,13 @@ pub const Font = struct {
         buf_height: u32,
         apadding: u32,
     ) u32 {
-        var padding = @intCast(i32, apadding);
-        var x = @intCast(i32, ax);
-        var y = @intCast(i32, ay);
+        var padding = @as(i32, @intCast(apadding));
+        var x = @as(i32, @intCast(ax));
+        var y = @as(i32, @intCast(ay));
         var ix: i32 = x;
         var nx: i32 = x + padding;
         if (nx + padding >= max_x)
-            return @intCast(u32, x);
+            return @as(u32, @intCast(x));
         x = nx;
 
         var fg_fill: *c.pixman_image_t = undefined;
@@ -89,11 +89,11 @@ pub const Font = struct {
             var kern: i64 = 0;
             if (last_cp != 0)
                 _ = c.fcft_kerning(self.internFont, last_cp, codepoint, &kern, null);
-            nx = @intCast(i32, x + kern + glyph.*.advance.x);
+            nx = @as(i32, @intCast(x + kern + glyph.*.advance.x));
             if (nx + padding > max_x)
                 break;
             last_cp = codepoint;
-            x += @intCast(i32, kern);
+            x += @as(i32, @intCast(kern));
 
             std.debug.print("glyph: {any}\n", .{glyph.*});
 
@@ -110,7 +110,7 @@ pub const Font = struct {
                     .x1 = x,
                     .x2 = nx,
                     .y1 = 0,
-                    .y2 = @intCast(i32, buf_height),
+                    .y2 = @as(i32, @intCast(buf_height)),
                 });
             }
 
@@ -120,7 +120,7 @@ pub const Font = struct {
         if (draw_fg)
             _ = c.pixman_image_unref(fg_fill);
         if (last_cp == 0)
-            return @intCast(u32, ix);
+            return @as(u32, @intCast(ix));
 
         nx = x + padding;
 
@@ -129,16 +129,16 @@ pub const Font = struct {
                 .x1 = ix,
                 .x2 = ix + padding,
                 .y1 = 0,
-                .y2 = @intCast(i32, buf_height),
+                .y2 = @as(i32, @intCast(buf_height)),
             });
             _ = c.pixman_image_fill_boxes(c.PIXMAN_OP_OVER, bg, bg_color, 1, &c.pixman_box32{
                 .x1 = x,
                 .x2 = nx,
                 .y1 = 0,
-                .y2 = @intCast(i32, buf_height),
+                .y2 = @as(i32, @intCast(buf_height)),
             });
         }
 
-        return @intCast(u32, nx);
+        return @as(u32, @intCast(nx));
     }
 };

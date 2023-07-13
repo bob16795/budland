@@ -20,7 +20,7 @@ pub var OutputImpl: c.struct_zdwl_ipc_output_v2_interface = .{
 };
 
 pub fn manager_bind(client: ?*c.wl_client, _: ?*anyopaque, version: u32, id: u32) callconv(.C) void {
-    var manager_resource = c.wl_resource_create(client, &c.zdwl_ipc_manager_v2_interface, @intCast(i32, version), id);
+    var manager_resource = c.wl_resource_create(client, &c.zdwl_ipc_manager_v2_interface, @as(i32, @intCast(version)), id);
     if (manager_resource == null) {
         c.wl_client_post_no_memory(client);
         return;
@@ -38,7 +38,7 @@ pub fn manager_destroy(_: [*c]c.wl_resource) callconv(.C) void {
 }
 
 pub fn manager_get_output(client: ?*c.wl_client, resource: [*c]c.wl_resource, id: u32, output: [*c]c.wl_resource) callconv(.C) void {
-    var monitor: *main.Monitor = @ptrCast(*main.Monitor, @alignCast(@alignOf(*main.Monitor), @ptrCast(*c.wlr_output, c.wlr_output_from_resource(output)).data));
+    var monitor: *main.Monitor = @as(*main.Monitor, @ptrCast(@alignCast(@as(*c.wlr_output, @ptrCast(c.wlr_output_from_resource(output))).data)));
     var output_resource = c.wl_resource_create(client, &c.zdwl_ipc_output_v2_interface, c.wl_resource_get_version(resource), id);
     if (output_resource == null) return;
 
@@ -56,7 +56,7 @@ pub fn manager_release(_: ?*c.wl_client, resource: [*c]c.wl_resource) callconv(.
 }
 
 pub fn output_destroy(resource: [*c]c.wl_resource) callconv(.C) void {
-    var ipc_output: *IpcOutput = @ptrCast(*IpcOutput, @alignCast(@alignOf(IpcOutput), c.wl_resource_get_user_data(resource) orelse return));
+    var ipc_output: *IpcOutput = @as(*IpcOutput, @ptrCast(@alignCast(c.wl_resource_get_user_data(resource) orelse return)));
     for (main.mons) |mon| {
         if (std.mem.indexOf(*IpcOutput, mon.ipc_outputs, &.{ipc_output})) |idx| {
             @memcpy(mon.ipc_outputs[idx .. mon.ipc_outputs.len - 1], mon.ipc_outputs[idx + 1 ..]);
@@ -83,7 +83,7 @@ pub fn output_printstatus_to(ipc_output: *IpcOutput) callconv(.C) void {
         var focused_client: u32 = 0;
         var numclients: u32 = 0;
 
-        var tagmask = std.math.pow(u32, 2, @intCast(u32, tag));
+        var tagmask = std.math.pow(u32, 2, @as(u32, @intCast(tag)));
         if ((tagmask & monitor.tagset[monitor.seltags]) != 0) {
             state |= c.ZDWL_IPC_OUTPUT_V2_TAG_STATE_ACTIVE;
         }
@@ -94,7 +94,7 @@ pub fn output_printstatus_to(ipc_output: *IpcOutput) callconv(.C) void {
             if (client.isurgent) state |= c.ZDWL_IPC_OUTPUT_V2_TAG_STATE_URGENT;
             numclients += 1;
         }
-        c.zdwl_ipc_output_v2_send_tag(ipc_output.resource, @intCast(u32, tag), state, numclients, focused_client);
+        c.zdwl_ipc_output_v2_send_tag(ipc_output.resource, @as(u32, @intCast(tag)), state, numclients, focused_client);
     }
     var title = if (focused) |f| main.client_get_title(f) orelse "" else "";
     var appid = if (focused) |f| main.client_get_appid(f) orelse "" else "";
@@ -106,7 +106,7 @@ pub fn output_printstatus_to(ipc_output: *IpcOutput) callconv(.C) void {
 }
 
 pub fn output_set_client_tags(_: ?*c.wl_client, resource: [*c]c.wl_resource, and_tags: u32, xor_tags: u32) callconv(.C) void {
-    var ipc_output: *IpcOutput = @ptrCast(*IpcOutput, @alignCast(@alignOf(IpcOutput), c.wl_resource_get_user_data(resource) orelse return));
+    var ipc_output: *IpcOutput = @as(*IpcOutput, @ptrCast(@alignCast(c.wl_resource_get_user_data(resource) orelse return)));
     var monitor = ipc_output.monitor;
 
     var newtags: u32 = 0;
@@ -125,7 +125,7 @@ pub fn output_set_client_tags(_: ?*c.wl_client, resource: [*c]c.wl_resource, and
 }
 
 pub fn output_set_layout(_: ?*c.wl_client, resource: [*c]c.wl_resource, layout: u32) callconv(.C) void {
-    var ipc_output: *IpcOutput = @ptrCast(*IpcOutput, @alignCast(@alignOf(IpcOutput), c.wl_resource_get_user_data(resource) orelse return));
+    var ipc_output: *IpcOutput = @as(*IpcOutput, @ptrCast(@alignCast(c.wl_resource_get_user_data(resource) orelse return)));
     var monitor = ipc_output.monitor;
 
     if (layout > main.configData.layouts.len)
@@ -140,7 +140,7 @@ pub fn output_set_layout(_: ?*c.wl_client, resource: [*c]c.wl_resource, layout: 
 }
 
 pub fn output_set_tags(_: ?*c.wl_client, resource: [*c]c.wl_resource, and_tags: u32, xor_tags: u32) callconv(.C) void {
-    var ipc_output: *IpcOutput = @ptrCast(*IpcOutput, @alignCast(@alignOf(IpcOutput), c.wl_resource_get_user_data(resource) orelse return));
+    var ipc_output: *IpcOutput = @as(*IpcOutput, @ptrCast(@alignCast(c.wl_resource_get_user_data(resource) orelse return)));
     var monitor = ipc_output.monitor;
 
     var newtags: u32 = 0;

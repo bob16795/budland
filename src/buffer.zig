@@ -15,7 +15,7 @@ pub const DataBuffer = struct {
 };
 
 pub fn data_buffer_from_buffer(buffer: [*c]c.wlr_buffer) *DataBuffer {
-    return @ptrCast(*DataBuffer, @alignCast(@alignOf(DataBuffer), buffer));
+    return @as(*DataBuffer, @ptrCast(@alignCast(buffer)));
 }
 
 pub fn data_buffer_destroy(wlr_buffer: [*c]c.wlr_buffer) callconv(.C) void {
@@ -60,7 +60,7 @@ const DataBufferImpl: c.wlr_buffer_impl = .{
 
 pub fn buffer_create_wrap(pixel_data: [*c]u8, width: u32, height: u32, stride: u32, free_on_destroy: bool) *DataBuffer {
     var buffer = allocator.create(DataBuffer) catch unreachable;
-    c.wlr_buffer_init(&buffer.base, &DataBufferImpl, @intCast(i32, width), @intCast(i32, height));
+    c.wlr_buffer_init(&buffer.base, &DataBufferImpl, @as(i32, @intCast(width)), @as(i32, @intCast(height)));
     buffer.data = pixel_data;
     buffer.format = c.DRM_FORMAT_ARGB8888;
     buffer.stride = stride;
@@ -72,18 +72,18 @@ pub fn buffer_create_cairo(width: u32, height: u32, scale: f32, free_on_destroy:
     var buffer = allocator.create(DataBuffer) catch unreachable;
     buffer.unscaled_width = width;
     buffer.unscaled_height = height;
-    var nwidth = @floatToInt(u32, scale * @intToFloat(f32, width));
-    var nheight = @floatToInt(u32, scale * @intToFloat(f32, height));
+    var nwidth = @as(u32, @intFromFloat(scale * @as(f32, @floatFromInt(width))));
+    var nheight = @as(u32, @intFromFloat(scale * @as(f32, @floatFromInt(height))));
 
-    c.wlr_buffer_init(&buffer.base, &DataBufferImpl, @intCast(i32, nwidth), @intCast(i32, nheight));
-    var surface = c.cairo_image_surface_create(c.CAIRO_FORMAT_ARGB32, @intCast(i32, nwidth), @intCast(i32, nheight));
+    c.wlr_buffer_init(&buffer.base, &DataBufferImpl, @as(i32, @intCast(nwidth)), @as(i32, @intCast(nheight)));
+    var surface = c.cairo_image_surface_create(c.CAIRO_FORMAT_ARGB32, @as(i32, @intCast(nwidth)), @as(i32, @intCast(nheight)));
 
     c.cairo_surface_set_device_scale(surface, scale, scale);
 
     buffer.cairo = c.cairo_create(surface);
     buffer.data = c.cairo_image_surface_get_data(surface);
     buffer.format = c.DRM_FORMAT_ARGB8888;
-    buffer.stride = @intCast(usize, c.cairo_image_surface_get_stride(surface));
+    buffer.stride = @as(usize, @intCast(c.cairo_image_surface_get_stride(surface)));
     buffer.free_on_destroy = free_on_destroy;
     if (buffer.data == null) {
         @panic("sad");
