@@ -29,8 +29,12 @@ pub fn manager_bind(client: ?*c.wl_client, _: ?*anyopaque, version: u32, id: u32
     c.wl_resource_set_implementation(manager_resource, &ManagerImpl, null, manager_destroy);
 
     c.zdwl_ipc_manager_v2_send_tags(manager_resource, main.tagcount);
-    for (main.configData.layouts) |layout|
-        c.zdwl_ipc_manager_v2_send_layout(manager_resource, layout.symbol.ptr);
+    for (main.configData.layouts) |layout| {
+        var dup = main.allocator.dupeZ(u8, layout.symbol) catch unreachable;
+        defer main.allocator.free(dup);
+
+        c.zdwl_ipc_manager_v2_send_layout(manager_resource, dup.ptr);
+    }
 }
 
 pub fn manager_destroy(_: [*c]c.wl_resource) callconv(.C) void {
@@ -101,7 +105,10 @@ pub fn output_printstatus_to(ipc_output: *IpcOutput) callconv(.C) void {
     c.zdwl_ipc_output_v2_send_layout(ipc_output.resource, monitor.sellt);
     c.zdwl_ipc_output_v2_send_title(ipc_output.resource, title.ptr);
     c.zdwl_ipc_output_v2_send_appid(ipc_output.resource, appid.ptr);
-    c.zdwl_ipc_output_v2_send_layout_symbol(ipc_output.resource, monitor.ltsymbol.*.ptr);
+
+    var symbol = main.allocator.dupeZ(u8, monitor.ltsymbol.*) catch unreachable;
+    defer main.allocator.free(symbol);
+    c.zdwl_ipc_output_v2_send_layout_symbol(ipc_output.resource, symbol);
     c.zdwl_ipc_output_v2_send_frame(ipc_output.resource);
 }
 
@@ -133,7 +140,7 @@ pub fn output_set_layout(_: ?*c.wl_client, resource: [*c]c.wl_resource, layout: 
     if (layout != monitor.sellt)
         monitor.sellt ^= 1;
 
-    monitor.lt[monitor.sellt] = &main.configData.layouts[layout];
+    monitor.lt[monitor.sellt] = layout;
     if (main.selmon) |selmon|
         main.arrange(selmon);
     main.printstatus();

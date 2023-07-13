@@ -1,0 +1,486 @@
+info: wayland-0
+swaybg: no process found
+WARNING: Setting plain_text in section global doesn't exist
+WARNING: Setting bounce_freq in section global doesn't exist
+WARNING: Setting hide_duplicates_count in section global doesn't exist
+WARNING: Setting geometry in section global doesn't exist
+WARNING: Setting startup_notification in section global doesn't exist
+WARNING: Section shortcuts is deprecated.
+Settings in the shortcuts sections have been moved to the global section.
+Alternatively you can bind shortcuts in your window manager to dunstctl commands. For that, see the manual for dunstctl.
+Ignoring this section.
+WARNING: compositor doesn't support zwlr_foreign_toplevel_v1. Fullscreen detection won't work
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:15:32: The style property GtkMenuItem:arrow-scaling is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:27:32: The style property GtkNotebook:tab-curvature is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:47:18: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:48:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:49:23: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:55:9: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.443: Theme parsing error: widgets.css:60:13: The :focused pseudo-class is deprecate2023-06-24 19:34:40 - [swaybg-1.2.0/main.c:293] Found config * for output eDP-1 (AU Optronics 0x106C)
+2023-06-24 19:34:40 - [swaybg-1.2.0/main.c:293] Found config * for output DP-1 (LG Electronics LG ULTRAWIDE 0x00005A20)
+d. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:61:14: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:62:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:67:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:72:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:77:13: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:95:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:98:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:159:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:170:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:241:25: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:255:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:278:19: Not using units is deprecated. Assuming 'px'.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:324:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:336:25: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:351:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:361:28: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:362:23: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:369:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:377:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:385:19: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:386:20: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:392:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:393:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:394:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:395:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.445: Theme parsing error: widgets.css:417:20: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.446: Theme parsing error: widgets.css:453:42: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.446: Theme parsing error: widgets.css:504:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-WARNING **: 19:34:40.446: Theme parsing error: widgets.css:505:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.603: Theme parsing error: widgets.css:7:36: The style property GtkCheckButton:indicator-size is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.603: Theme parsing error: widgets.css:8:38: The style property GtkCheckMenuItem:indicator-size is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.603: Theme parsing error: widgets.css:12:32: The style property GtkExpander:expander-size is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:15:32: The style property GtkMenuItem:arrow-scaling is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:23:29: The style property GtkRange:trough-border is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:27:32: The style property GtkNotebook:tab-curvature is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:47:18: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:48:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:49:23: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:55:9: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:60:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.604: Theme parsing error: widgets.css:61:14: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:62:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:67:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:72:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:77:13: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:95:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:98:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.605: Theme parsing error: widgets.css:159:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:170:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:241:25: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:255:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:278:19: Not using units is deprecated. Assuming 'px'.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:324:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:336:25: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:351:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:361:28: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:362:23: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:369:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:377:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:385:19: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:386:20: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:392:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:393:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:394:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:395:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:417:20: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:453:42: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:504:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(waybar:51794): Gtk-WARNING **: 19:34:40.606: Theme parsing error: widgets.css:505:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:15:32: The style property GtkMenuItem:arrow-scaling is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:23:29: The style property GtkRange:trough-border is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:27:32: The style property GtkNotebook:tab-curvature is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:47:18: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:48:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:49:23: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:55:9: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:60:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:61:14: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:62:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:67:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:72:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:77:13: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:95:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:98:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:159:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:170:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:241:25: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:255:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:278:19: Not using units is deprecated. Assuming 'px'.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:324:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:336:25: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.729: Theme parsing error: widgets.css:351:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:361:28: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:362:23: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:369:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:377:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:385:19: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:386:20: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:392:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:393:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:394:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:395:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:417:20: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:453:42: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:504:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-applet:51796): Gtk-WARNING **: 19:34:40.730: Theme parsing error: widgets.css:505:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(nm-applet:51797): Gtk-CRITICAL **: 19:34:40.826: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Unsupported maximum keycode 708, clipping.
+>                   X11 cannot support keycodes above 255.
+blueman-applet 19.34.40 WARNING  PluginManager:94 load_plugin: Failed to start plugin GameControllerWakelock: Only X11 platform is supported
+Errors from xkbcomp are not fatal to the X server
+blueman-applet 19.34.40 WARNING  PluginManager:151 __load_plugin: Not loading PPPSupport because its conflict has higher priority
+blueman-applet 19.34.40 WARNING  PluginManager:151 __load_plugin: Not loading DhcpClient because its conflict has higher priority
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:15:32: The style property GtkMenuItem:arrow-scaling is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:23:29: The style property GtkRange:trough-border is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:27:32: The style property GtkNotebook:tab-curvature is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:47:18: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:48:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:49:23: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:55:9: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:60:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:61:14: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:62:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:67:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:72:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:77:13: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:95:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:98:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:159:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.183: Theme parsing error: widgets.css:170:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:241:25: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:255:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:278:19: Not using units is deprecated. Assuming 'px'.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:324:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:336:25: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:351:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:361:28: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:362:23: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:369:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:377:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:385:19: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:386:20: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:392:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:393:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:394:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:395:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:417:20: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:453:42: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:504:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:41.184: Theme parsing error: widgets.css:505:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-CRITICAL **: 19:34:41.195: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+info: config.Config.Rule{ .id = null, .title = null, .name = null, .icon = { 63 }, .tags = 0, .container = 3, .center = true, .isfloating = true, .monitor = -1 }
+info: null, null
+info: config.Config.Rule{ .id = { 107, 105, 116, 116, 121, 65 }, .title = null, .name = null, .icon = { 239, 132, 160 }, .tags = 0, .container = 1, .center = false, .isfloating = false, .monitor = -1 }
+info: kittyA, null
+info: config.Config.Rule{ .id = { 107, 105, 116, 116, 121, 66 }, .title = null, .name = null, .icon = { 239, 132, 160 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 102, 105, 108, 101, 115, 66 }, .title = null, .name = { 70, 105, 108, 101, 115 }, .icon = { 239, 132, 160 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 102, 105, 108, 101, 115, 68 }, .title = null, .name = { 70, 105, 108, 101, 115 }, .icon = { 239, 132, 160 }, .tags = 0, .container = 4, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 100, 105, 115, 99, 111, 114, 100 }, .title = null, .name = { 68, 105, 115, 99, 111, 114, 100 }, .icon = { 67 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 104, 116, 111, 112 }, .title = null, .name = { 84, 115, 107 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 83, 120, 105, 118 }, .title = null, .name = { 80, 105, 120 }, .icon = { 239, 135, 188 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 99, 104, 114, 111, 109, 105, 117, 109 }, .title = null, .name = { 87, 101, 98 }, .icon = { 239, 130, 172 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 102, 105, 114, 101, 102, 111, 120 }, .title = null, .name = { 87, 101, 98 }, .icon = { 239, 130, 172 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 112, 97, 118, 117, 99, 111, 110, 116, 114, 111, 108 }, .title = null, .name = { 86, 111, 108 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 110, 101, 111, 118, 105, 100, 101 }, .title = null, .name = { 67, 111, 100, 101 }, .icon = { 239, 132, 161 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 99, 97, 118, 97 }, .title = null, .name = { 86, 105, 115 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 4, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 83, 112, 111, 116, 105, 102, 121 }, .title = null, .name = { 77, 117, 115 }, .icon = null, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 69, 109, 97, 99, 115 }, .title = null, .name = { 67, 111, 100, 101 }, .icon = { 239, 132, 161 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = null, .title = { 83, 97, 110, 100, 69, 69, 69 }, .name = null, .icon = null, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+[175 19:34:41.312650] [glfw error 65544]: process_desktop_settings: failed with error: [org.freedesktop.DBus.Error.UnknownMethod] No such interface “org.freedesktop.portal.Settings” on object at path /org/freedesktop/portal/desktop
+[175 19:34:41.938050] [glfw error 65544]: process_desktop_settings: failed with error: [org.freedesktop.DBus.Error.UnknownMethod] No such interface “org.freedesktop.portal.Settings” on object at path /org/freedesktop/portal/desktop
+info: config.Config.Rule{ .id = null, .title = null, .name = null, .icon = { 63 }, .tags = 0, .container = 3, .center = true, .isfloating = true, .monitor = -1 }
+info: null, null
+info: config.Config.Rule{ .id = { 107, 105, 116, 116, 121, 65 }, .title = null, .name = null, .icon = { 239, 132, 160 }, .tags = 0, .container = 1, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 107, 105, 116, 116, 121, 66 }, .title = null, .name = null, .icon = { 239, 132, 160 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: kittyB, null
+info: config.Config.Rule{ .id = { 102, 105, 108, 101, 115, 66 }, .title = null, .name = { 70, 105, 108, 101, 115 }, .icon = { 239, 132, 160 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 102, 105, 108, 101, 115, 68 }, .title = null, .name = { 70, 105, 108, 101, 115 }, .icon = { 239, 132, 160 }, .tags = 0, .container = 4, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 100, 105, 115, 99, 111, 114, 100 }, .title = null, .name = { 68, 105, 115, 99, 111, 114, 100 }, .icon = { 67 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 104, 116, 111, 112 }, .title = null, .name = { 84, 115, 107 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 83, 120, 105, 118 }, .title = null, .name = { 80, 105, 120 }, .icon = { 239, 135, 188 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 99, 104, 114, 111, 109, 105, 117, 109 }, .title = null, .name = { 87, 101, 98 }, .icon = { 239, 130, 172 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 102, 105, 114, 101, 102, 111, 120 }, .title = null, .name = { 87, 101, 98 }, .icon = { 239, 130, 172 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 112, 97, 118, 117, 99, 111, 110, 116, 114, 111, 108 }, .title = null, .name = { 86, 111, 108 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 2, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 110, 101, 111, 118, 105, 100, 101 }, .title = null, .name = { 67, 111, 100, 101 }, .icon = { 239, 132, 161 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 99, 97, 118, 97 }, .title = null, .name = { 86, 105, 115 }, .icon = { 239, 130, 128 }, .tags = 0, .container = 4, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 83, 112, 111, 116, 105, 102, 121 }, .title = null, .name = { 77, 117, 115 }, .icon = null, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = { 69, 109, 97, 99, 115 }, .title = null, .name = { 67, 111, 100, 101 }, .icon = { 239, 132, 161 }, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+info: config.Config.Rule{ .id = null, .title = { 83, 97, 110, 100, 69, 69, 69 }, .name = null, .icon = null, .tags = 0, .container = 3, .center = false, .isfloating = false, .monitor = -1 }
+
+(waybar:51794): GLib-GObject-CRITICAL **: 19:34:41.965: ../glib/gobject/gsignal.c:2088: type 'GtkWindow' is already overridden for signal id '73'
+
+(waybar:51794): GLib-GObject-CRITICAL **: 19:34:41.965: ../glib/gobject/gsignal.c:2088: type 'GtkWindow' is already overridden for signal id '72'
+
+** (waybar:51794): WARNING **: 19:34:42.035: Status Notifier Item with bus name ':1.1361' and object path '/org/ayatana/NotificationItem/nm_applet' is already registered
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:15:32: The style property GtkMenuItem:arrow-scaling is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:23:29: The style property GtkRange:trough-border is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:27:32: The style property GtkNotebook:tab-curvature is deprecated and shouldn't be used anymore. It will be removed in a future version
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:47:18: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:48:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:49:23: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:55:9: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:60:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:61:14: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:62:13: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:67:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:72:21: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:77:13: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:95:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:98:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.496: Theme parsing error: widgets.css:159:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:170:29: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:241:25: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:255:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:278:19: Not using units is deprecated. Assuming 'px'.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:324:18: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:336:25: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:351:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:361:28: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:362:23: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:369:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:377:22: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:385:19: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:386:20: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:392:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:393:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:394:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:395:17: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:417:20: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:453:42: The :focused pseudo-class is deprecated. Use :focus instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:504:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(blueman-tray:51880): Gtk-WARNING **: 19:34:42.497: Theme parsing error: widgets.css:505:26: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+** (waybar:51794): WARNING **: 19:34:42.506: Status Notifier Item with bus name ':1.1361' and object path '/org/ayatana/NotificationItem/nm_applet' is already registered
+Segmentation fault at address 0x7fb1b5d8a0c0
+/home/john/doc/rep/github.com/budland/src/main.zig:317:19: 0x2a7808 in budGetSizeInContainer (budland)
+        for (child.ids) |id| {
+                  ^
+/home/john/doc/rep/github.com/budland/src/main.zig:363:44: 0x285550 in bud (budland)
+            var new = budGetSizeInContainer(client.container, win, container, containerUsage);
+                                           ^
+/home/john/doc/rep/github.com/budland/src/main.zig:955:12: 0x24107d in arrange (budland)
+        bud(mon, configData.layouts[mon.lt[mon.sellt]].igapps, configData.layouts[mon.lt[mon.sellt]].ogapps, container);
+           ^
+/home/john/doc/rep/github.com/budland/src/main.zig:2351:16: 0x226028 in reload (budland)
+        arrange(monitor);
+               ^
+/home/john/doc/rep/github.com/budland/src/config.zig:26:23: 0x2353d7 in run (budland)
+                runner(&self.arg);
+                      ^
+/home/john/doc/rep/github.com/budland/src/main.zig:2238:22: 0x2b0b57 in keybinding (budland)
+            k.cmd.run();
+                     ^
+/home/john/doc/rep/github.com/budland/src/main.zig:2192:33: 0x2950ca in keypress (budland)
+            handled = keybinding(mods, sym) or handled;
+                                ^
+???:?:?: 0x7fb1b70f301d in ??? (???)
+Gdk-Message: 19:34:44.569: Error reading events from display: Broken pipe
+[175 19:34:44.569835] [glfw error 65544]: Wayland: fatal display error: Connection reset by peer
+(EE) failed to read Wayland events: Broken pipe
+Gdk-Message: 19:34:44.570: Error reading events from display: Connection reset by peer
+Gdk-Message: 19:34:44.570: Error reading events from display: Broken pipe
+[175 19:34:44.571394] [glfw error 65544]: Wayland: fatal display error: Connection reset by peer
+Gdk-Message: 19:34:44.571: Error reading events from display: Broken pipe
+run budland: error: the following command terminated unexpectedly:
+/home/john/doc/rep/github.com/budland/zig-out/bin/budland 
+Build Summary: 3/5 steps succeeded; 1 failed (disable with -fno-summary)
+run transitive failure
++- run budland failure
+   +- zig build-exe budland Debug native cached 18ms MaxRSS:35M
+   +- install cached
+      +- install budland cached
+         +- zig build-exe budland Debug native (reused)
+error: the following build command failed with exit code 1:
+/home/john/doc/rep/github.com/budland/zig-cache/o/c30af9b10cd0bc7b2dc8ecc87606af4d/build /usr/bin/zig /home/john/doc/rep/github.com/budland /home/john/doc/rep/github.com/budland/zig-cache /home/john/.cache/zig run
