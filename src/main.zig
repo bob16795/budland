@@ -1359,7 +1359,7 @@ pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callco
     layersurface.scene_layer = c.wlr_scene_layer_surface_v1_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))), wlr_layer_surface);
     layersurface.scene = layersurface.scene_layer.tree;
     std.debug.print("LAYER {}\n", .{wlr_layer_surface.pending.layer});
-    layersurface.popups = c.wlr_scene_tree_create(layers.get(@intToEnum(Layer, wlr_layer_surface.pending.layer)));
+    layersurface.popups = c.wlr_scene_tree_create(layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.pending.layer))));
     wlr_layer_surface.surface.*.data = layersurface.popups;
 
     layersurface.scene.node.data = layersurface;
@@ -1530,7 +1530,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         client.title = null;
     }
 
-    client.title = buffers.buffer_create_cairo(@intCast(u32, client.geom.width), @intCast(u32, barheight + client.bw * 2), bufferScale, true);
+    client.title = buffers.buffer_create_cairo(@as(u32, @intCast(client.geom.width)), @as(u32, @intCast(barheight + client.bw * 2)), bufferScale, true);
 
     var cairo = client.title.?.cairo;
 
@@ -1556,9 +1556,9 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         var exts: c.cairo_text_extents_t = undefined;
         c.cairo_text_extents(cairo, title.ptr, &exts);
 
-        var text_y = (@intToFloat(f64, barheight) - fontsize) / 2;
+        var text_y = (@as(f64, @floatFromInt(barheight)) - fontsize) / 2;
 
-        c.cairo_move_to(cairo, @intToFloat(f64, tabClient.bw + barpadding) + tabWidth * @intToFloat(f64, currentTab), text_y + fontsize);
+        c.cairo_move_to(cairo, @as(f64, @floatFromInt(tabClient.bw + barpadding)) + tabWidth * @as(f64, @floatFromInt(currentTab)), text_y + fontsize);
         c.cairo_text_path(cairo, title.ptr);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_fill(cairo);
@@ -1571,7 +1571,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
 
         c.cairo_text_extents(cairo, icon.ptr, &exts);
 
-        c.cairo_move_to(cairo, @intToFloat(f64, currentTab + 1) * tabWidth - exts.width - @intToFloat(f64, tabClient.bw), text_y + fontsize);
+        c.cairo_move_to(cairo, @as(f64, @floatFromInt(currentTab + 1)) * tabWidth - exts.width - @as(f64, @floatFromInt(tabClient.bw)), text_y + fontsize);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
         c.cairo_text_path(cairo, icon.ptr);
         c.cairo_fill(cairo);
@@ -1595,7 +1595,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     var client: *Client = undefined;
     client = c.wl_container_of(listener, client, "map");
-    std.debug.print("LAYER {}\n", .{@enumToInt(Layer.LyrTile)});
+    std.debug.print("LAYER {}\n", .{@intFromEnum(Layer.LyrTile)});
     client.scene = c.wlr_scene_tree_create(layers.get(.LyrTile));
     c.wlr_scene_node_set_enabled(&client.scene.node, client.type != .XDGShell);
     client.scene_surface = if (client.type == .XDGShell)
@@ -2276,7 +2276,7 @@ pub fn spawn(arg: *const cfg.Config.Arg) void {
 
 pub fn setlayout(arg: *const cfg.Config.Arg) void {
     if (selmon == null) return;
-    var lt = @intCast(usize, arg.i);
+    var lt = @as(usize, @intCast(arg.i));
 
     if (arg.i != selmon.?.lt[selmon.?.sellt])
         selmon.?.sellt ^= 1;
@@ -2289,7 +2289,7 @@ pub fn setlayout(arg: *const cfg.Config.Arg) void {
 pub fn cyclelayout(arg: *const cfg.Config.Arg) void {
     for (configData.layouts, 0..) |_, idx| {
         if (idx == selmon.?.lt[selmon.?.sellt]) {
-            var i = @intCast(i32, idx);
+            var i = @as(i32, @intCast(idx));
             i += arg.i;
             i = @mod(i, @as(i32, @intCast(configData.layouts.len)));
             setlayout(&.{ .i = i });
