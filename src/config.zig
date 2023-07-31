@@ -72,17 +72,18 @@ pub const Config = struct {
     };
 
     pub const Container = struct {
+        name: []const u8,
+
         x_start: f32,
         y_start: f32,
         x_end: f32,
         y_end: f32,
         children: []*const Container,
-        name: []const u8,
         ids: []const u8,
     };
 
     colors: [2][3][4]f32,
-    containers: std.StringHashMap(Container),
+    containers: std.StringHashMap(*const Container),
     autoexec: []AutoExec,
     monrules: []MonitorRule,
     rules: []Rule,
@@ -254,7 +255,7 @@ pub const Config = struct {
             .keys = try allocator.alloc(KeyBind, 1),
             .buttons = try allocator.alloc(MouseBind, 0),
             .autoexec = try allocator.alloc(AutoExec, 0),
-            .containers = std.StringHashMap(Container).init(allocator),
+            .containers = std.StringHashMap(*const Container).init(allocator),
         };
 
         result.keys[0] = .{ .mod = c.WLR_MODIFIER_LOGO | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_Escape, .cmd = .{ .func = main.quit, .arg = .{ .i = 0 } } };
@@ -344,57 +345,62 @@ pub const Config = struct {
                         .y = y,
                     };
                 } else if (std.mem.eql(u8, cmd, "container")) {
-                    var name = try allocator.dupeZ(u8, splitIter.next() orelse return error.NoCommand);
+                    var name = try allocator.dupe(u8, splitIter.next() orelse return error.NoCommand);
                     var conKind = splitIter.next() orelse return error.NoCommand;
                     if (std.mem.eql(u8, conKind, "client")) {
-                        var id = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
+                        const id = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
                         var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
                         var y1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
-                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
-                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
-                        try result.containers.put(name, .{
+                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "1");
+                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "1");
+                        const container = try allocator.create(Container);
+                        container.* = .{
                             .name = name,
                             .x_start = x1,
                             .y_start = y1,
                             .x_end = x2,
                             .y_end = y2,
                             .ids = try allocator.dupe(u8, &.{id}),
-                            .children = &defChildren,
-                        });
+                            .children = try allocator.dupe(*const Container, &defChildren),
+                        };
+
+                        try result.containers.putNoClobber(name, container);
                     } else if (std.mem.eql(u8, conKind, "multi")) {
                         var x1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
                         var y1 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
-                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
-                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "0");
+                        var x2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "1");
+                        var y2 = try std.fmt.parseFloat(f32, splitIter.next() orelse "1");
                         var ids = std.ArrayList(u8).init(allocator);
-                        var children = std.ArrayList(*Container).init(allocator);
+                        var children = std.ArrayList(*const Container).init(allocator);
                         defer ids.deinit();
                         defer children.deinit();
 
                         while (splitIter.next()) |conName| {
-                            if (result.containers.getPtr(conName)) |child| {
-                                try ids.appendSlice(child.ids);
-                                try children.append(child);
-                            } else {
-                                return error.NoCommand;
-                            }
-                        }
+                            const child = result.containers.get(conName) orelse return error.NoCommand;
 
-                        try result.containers.put(name, .{
+                            try ids.appendSlice(child.ids);
+                            try children.append(child);
+                        }
+                        const container = try allocator.create(Container);
+                        container.* = .{
                             .name = name,
                             .x_start = x1,
                             .y_start = y1,
                             .x_end = x2,
                             .y_end = y2,
                             .ids = try allocator.dupe(u8, ids.items),
-                            .children = try allocator.dupe(*Container, children.items),
-                        });
+                            .children = try allocator.dupe(*const Container, children.items),
+                        };
+
+                        try result.containers.putNoClobber(name, container);
                     } else {
                         return error.NoCommand;
                     }
+                    std.log.info("{?*}", .{result.containers.get(name)});
+                    std.log.info("{any}", .{result.containers.get(name)});
                 } else if (std.mem.eql(u8, cmd, "layout")) {
                     var conName = splitIter.next() orelse return error.NoCommand;
-                    var container = result.containers.getPtr(conName) orelse return error.NoContainer;
+                    var container = result.containers.get(conName) orelse return error.NoContainer;
                     var ig = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
                     var og = try std.fmt.parseInt(u8, splitIter.next() orelse "0", 0);
                     var name = splitIter.next() orelse return error.NoCommand;

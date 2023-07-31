@@ -13,6 +13,7 @@ pub var barpadding: i32 = 2;
 const sloppyfocus: bool = true;
 const bypass_surface_visibility: bool = true;
 const borderpx: i32 = 2;
+const bad: []const u8 = "???";
 
 pub const tagcount = 4;
 
@@ -193,6 +194,8 @@ const Client = struct {
     destroy: c.wl_listener,
     set_title: c.wl_listener,
     fullscreen: c.wl_listener,
+    resize: c.wl_listener,
+
     frame: bool = false,
     framefocused: bool = false,
     hasframe: bool = false,
@@ -210,7 +213,7 @@ const Client = struct {
     isurgent: bool,
     isfullscreen: bool,
     iscentered: bool,
-    resize: u32,
+    resize_serial: u32,
 
     container: u8,
 };
@@ -336,7 +339,7 @@ fn budGetSizeInContainer(target: u8, currentSize: c.wlr_box, container: *const c
 }
 
 pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config.Container) void {
-    var containerUsage: []bool = allocator.alloc(bool, container.ids.len) catch unreachable;
+    const containerUsage: []bool = allocator.alloc(bool, container.ids.len) catch unreachable;
     defer allocator.free(containerUsage);
 
     for (clients.items) |client| {
@@ -372,7 +375,7 @@ pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config
 }
 
 pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
-    var config = c.wlr_output_configuration_v1_create();
+    const config = c.wlr_output_configuration_v1_create();
     var config_head: *c.wlr_output_configuration_head_v1 = undefined;
 
     for (mons) |m| {
@@ -409,7 +412,7 @@ pub fn updatemons(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
         c.wlr_scene_rect_set_size(m.fullscreen_bg, m.m.width, m.m.height);
 
         if (m.lock_surface) |lock_surface| {
-            var scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(lock_surface.surface.*.data)));
+            const scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(lock_surface.surface.*.data)));
             c.wlr_scene_node_set_position(&scene_tree.node, m.m.x, m.m.y);
             _ = c.wlr_session_lock_surface_v1_configure(lock_surface, @as(u32, @intCast(m.m.width)), @as(u32, @intCast(m.m.height)));
         }
@@ -480,16 +483,17 @@ pub fn focustop(m: ?*Monitor) ?*Client {
 }
 
 pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
-    var bbox: *c.wlr_box = if (interact) &sgeom else &client.mon.?.w;
     _ = client_set_bounds(client, geo.width, geo.height);
 
     const old = client.geom.width;
     client.geom = geo;
 
-    applybounds(client, bbox);
     client_update_frame(client, old != client.geom.width);
 
-    var titleheight: i32 = if (client.hasframe) barheight + client.bw else 0;
+    const bbox: *c.wlr_box = if (interact) &sgeom else &client.mon.?.w;
+    applybounds(client, bbox);
+
+    const titleheight: i32 = if (client.hasframe) barheight + client.bw else 0;
 
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
     c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw + titleheight);
@@ -500,14 +504,16 @@ pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     c.wlr_scene_node_set_position(&client.border[1].node, 0, client.geom.height - client.bw);
     c.wlr_scene_node_set_position(&client.border[2].node, 0, client.bw);
     c.wlr_scene_node_set_position(&client.border[3].node, client.geom.width - client.bw, client.bw);
-    client.resize = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw - titleheight);
+    client.resize_serial = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw - titleheight);
 }
 
 pub fn client_set_bounds(client: *Client, w: i32, h: i32) u32 {
+    _ = h;
+    _ = w;
     if (client.type == .X11Managed or client.type == .X11Unmanaged) return 0;
 
-    if (client.surface.xdg.*.client.*.shell.*.version >= 4 and w >= 0 and h >= 0)
-        return c.wlr_xdg_toplevel_set_bounds(client.surface.xdg.unnamed_0.toplevel, w, h);
+    //if (client.surface.xdg.*.client.*.shell.*.version >= 4 and w >= 0 and h >= 0)
+    //    return c.wlr_xdg_toplevel_set_bounds(client.surface.xdg.unnamed_0.toplevel, w, h);
 
     return 0;
 }
@@ -516,10 +522,10 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
     if (client.type == .X11Managed or client.type == .X11Unmanaged) {
         c.wlr_xwayland_surface_configure(
             client.surface.xwayland,
-            @as(i16, @intCast(client.geom.x)),
-            @as(i16, @intCast(client.geom.y)),
-            @as(u16, @intCast(w)),
-            @as(u16, @intCast(h)),
+            @intCast(client.geom.x),
+            @intCast(client.geom.y),
+            @intCast(w),
+            @intCast(h),
         );
         return 0;
     }
@@ -530,7 +536,7 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
 }
 
 pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
-    var tmpheight = if (client.hasframe) barheight + client.bw else 0;
+    const tmpheight = if (client.hasframe) barheight + client.bw else 0;
 
     if (!client.isfullscreen) {
         var min: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
@@ -540,9 +546,9 @@ pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
         client.geom.width = @max(min.width + (2 * client.bw), client.geom.width);
         client.geom.height = @max(min.height + (2 * client.bw) + tmpheight, client.geom.height);
 
-        if (max.width > 0 and !(2 * client.bw > 2147483647 - max.width))
+        if (max.width > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.width))
             client.geom.width = @min(max.width + (2 * client.bw), client.geom.width);
-        if (max.height > 0 and !(2 * client.bw > 2147483647 - max.height))
+        if (max.height > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.height))
             client.geom.height = @min(max.height + (2 * client.bw) + tmpheight, client.geom.height);
     }
 
@@ -555,12 +561,12 @@ pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
     if (client.geom.y + client.geom.height + 2 * client.bw < bbox.y)
         client.geom.y = bbox.y;
     if (client.geom.width < 2 * client.bw + 20) client.geom.width = 2 * client.bw + 20;
-    if (client.geom.height < 2 * client.bw + 20) client.geom.height = 2 * client.bw + 20 + tmpheight;
+    if (client.geom.height < 2 * client.bw + 20 + tmpheight) client.geom.height = 2 * client.bw + 20 + tmpheight;
 }
 
 pub fn client_get_size_hints(client: *Client, min: *c.wlr_box, max: *c.wlr_box) void {
     if (client.type == .X11Managed or client.type == .X11Unmanaged) {
-        var size_hints = client.surface.xwayland.size_hints;
+        const size_hints = client.surface.xwayland.size_hints;
         if (size_hints != null) {
             max.width = size_hints.*.max_width;
             max.height = size_hints.*.max_height;
@@ -569,8 +575,8 @@ pub fn client_get_size_hints(client: *Client, min: *c.wlr_box, max: *c.wlr_box) 
         }
         return;
     }
-    var toplevel = client.surface.xdg.unnamed_0.toplevel;
-    var state = &toplevel.*.current;
+    const toplevel = client.surface.xdg.unnamed_0.toplevel;
+    const state = &toplevel.*.current;
     max.width = state.max_width;
     max.height = state.max_height;
     min.width = state.min_width;
@@ -579,7 +585,7 @@ pub fn client_get_size_hints(client: *Client, min: *c.wlr_box, max: *c.wlr_box) 
 
 pub fn arrangelayers(m: *Monitor) void {
     var usable_area: c.wlr_box = m.m;
-    var layers_above_shell = [_]u32{
+    const layers_above_shell = [_]u32{
         c.ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
         c.ZWLR_LAYER_SHELL_V1_LAYER_TOP,
     };
@@ -618,7 +624,7 @@ pub fn client_notify_enter(s: *c.wlr_surface, kb: ?*c.wlr_keyboard) void {
 }
 
 pub fn focusclient(foc: ?*Client, lift: bool) void {
-    var old = seat.keyboard_state.focused_surface;
+    const old = seat.keyboard_state.focused_surface;
 
     if (locked) return;
 
@@ -651,7 +657,7 @@ pub fn focusclient(foc: ?*Client, lift: bool) void {
         var l: ?*LayerSurface = null;
         var unused_lx: i32 = 0;
         var unused_ly: i32 = 0;
-        var kind = toplevel_from_wlr_surface(old, &w, &l);
+        const kind = toplevel_from_wlr_surface(old, &w, &l);
         if (kind == .LayerShell and c.wlr_scene_node_coords(&l.?.scene.*.node, &unused_lx, &unused_ly) and l.?.layer_surface.*.current.layer >= c.ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
             return;
         } else if (w != null and @intFromPtr(w) == exclusive_focus and client_wants_focus(w.?)) {
@@ -694,7 +700,7 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
     _ = xytonode(cursor.x, cursor.y, &surface, &client, null, &sx, &sy);
 
     if (cursor_mode == .CurPressed and seat.drag == null) {
-        var kind = toplevel_from_wlr_surface(seat.pointer_state.focused_surface, &w, &l);
+        const kind = toplevel_from_wlr_surface(seat.pointer_state.focused_surface, &w, &l);
         if (kind != .Undefined) {
             client = w;
             surface = seat.pointer_state.focused_surface;
@@ -798,8 +804,9 @@ pub fn xytonode(x: f64, y: f64, psurface: ?*?*c.wlr_surface, pc: ?*?*Client, pl:
 }
 
 pub fn pointerfocus(client: ?*Client, surface: ?*c.wlr_surface, sx: f64, sy: f64, time: u32) void {
+    const internal_call = time == 0;
+
     var atime: i64 = time;
-    var internal_call = time == 0;
     var now: c.timespec = undefined;
 
     if (sloppyfocus and !internal_call and client != null and client.?.type != .X11Unmanaged) {
@@ -822,13 +829,13 @@ pub fn pointerfocus(client: ?*Client, surface: ?*c.wlr_surface, sx: f64, sy: f64
 
 pub fn client_activate_surface(s: *c.wlr_surface, activated: bool) void {
     if (c.wlr_surface_is_xwayland_surface(s)) {
-        var xsurface = c.wlr_xwayland_surface_from_wlr_surface(s);
+        const xsurface = c.wlr_xwayland_surface_from_wlr_surface(s);
         if (xsurface != null)
             c.wlr_xwayland_surface_activate(xsurface, activated);
         return;
     }
     if (c.wlr_surface_is_xdg_surface(s)) {
-        var surface = c.wlr_xdg_surface_from_wlr_surface(s);
+        const surface = c.wlr_xdg_surface_from_wlr_surface(s);
         if (surface != null and surface.*.role == c.WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
             _ = c.wlr_xdg_toplevel_set_activated(surface.*.unnamed_0.toplevel, activated);
         }
@@ -850,10 +857,10 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
             return kind;
         }
 
-        var root_surface = c.wlr_surface_get_root_surface(s);
+        const root_surface = c.wlr_surface_get_root_surface(s);
 
         if (c.wlr_surface_is_xwayland_surface(root_surface)) {
-            var xsurface = c.wlr_xwayland_surface_from_wlr_surface(root_surface);
+            const xsurface = c.wlr_xwayland_surface_from_wlr_surface(root_surface);
             if (xsurface != null) {
                 client = @as(?*Client, @ptrCast(@alignCast(xsurface.*.data)));
                 kind = client.?.type;
@@ -862,7 +869,7 @@ pub fn toplevel_from_wlr_surface(s: ?*c.wlr_surface, pc: ?*?*Client, pl: ?*?*Lay
         }
 
         if (c.wlr_surface_is_layer_surface(root_surface)) {
-            var layer_surface = c.wlr_layer_surface_v1_from_wlr_surface(root_surface);
+            const layer_surface = c.wlr_layer_surface_v1_from_wlr_surface(root_surface);
             if (layer_surface != null) {
                 l = @as(?*LayerSurface, @ptrCast(@alignCast(layer_surface.*.data)));
                 kind = .LayerShell;
@@ -918,11 +925,11 @@ pub inline fn visible_on(client: *Client, mon: *Monitor) bool {
 }
 
 pub fn arrangelayer(mon: *Monitor, list: std.ArrayList(*LayerSurface), usable_area: *c.wlr_box, exclusive: bool) void {
-    var full_area = mon.m;
+    const full_area = mon.m;
 
     for (list.items) |layersurface| {
-        var wlr_layer_surface = layersurface.layer_surface;
-        var state = &wlr_layer_surface.current;
+        const wlr_layer_surface = layersurface.layer_surface;
+        const state = &wlr_layer_surface.current;
 
         if (exclusive != (state.exclusive_zone > 0))
             continue;
@@ -941,7 +948,7 @@ pub fn arrange(mon: *Monitor) void {
         }
     }
 
-    var client: ?*Client = focustop(mon);
+    const client: ?*Client = focustop(mon);
 
     c.wlr_scene_node_set_enabled(&mon.fullscreen_bg.node, client != null and client.?.isfullscreen);
 
@@ -964,8 +971,8 @@ pub fn checkidleinhibitor(exclude: ?*c.wlr_surface) void {
     while (&inhibitor.link != &idle_inhibit_mgr.inhibitors) {
         inhibitor = c.wl_container_of(inhibitor.link.next, inhibitor, "link");
 
-        var surface = c.wlr_surface_get_root_surface(inhibitor.*.surface);
-        var tree = @as(?*c.wlr_scene_tree, @ptrCast(@alignCast(surface.*.data)));
+        const surface = c.wlr_surface_get_root_surface(inhibitor.*.surface);
+        const tree = @as(?*c.wlr_scene_tree, @ptrCast(@alignCast(surface.*.data)));
         if (exclude != surface and (bypass_surface_visibility or (tree == null or c.wlr_scene_node_coords(&tree.?.node, &unused_lx, &unused_ly)))) {
             inhibited = true;
             break;
@@ -983,7 +990,7 @@ pub fn client_is_mapped(client: *Client) bool {
 }
 
 pub fn setmon(client: *Client, mon: ?*Monitor, newtags: u32) void {
-    var oldmon = client.mon;
+    const oldmon = client.mon;
 
     if (oldmon == mon)
         return;
@@ -1042,11 +1049,9 @@ pub fn client_set_fullscreen(client: *Client, fullscreen: bool) void {
     _ = c.wlr_xdg_toplevel_set_fullscreen(client.surface.xdg.unnamed_0.toplevel, fullscreen);
 }
 
-var bad: []const u8 = "???";
-
 pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
-    var wlr_output = @as(*c.wlr_output, @ptrCast(@alignCast(data)));
-    var m = allocator.create(Monitor) catch {
+    const wlr_output = @as(*c.wlr_output, @ptrCast(@alignCast(data)));
+    const m = allocator.create(Monitor) catch {
         return;
     };
     m.* = std.mem.zeroInit(Monitor, .{
@@ -1116,7 +1121,7 @@ pub fn rendermon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     skip: {
         for (clients.items) |client| {
-            if (client.resize != 0 and !client.isfloating and client_is_rendered_on_mon(client, m) and !client_is_stopped(client)) break :skip;
+            if (client.resize_serial != 0 and !client.isfloating and client_is_rendered_on_mon(client, m) and !client_is_stopped(client)) break :skip;
         }
         if (!c.wlr_scene_output_commit(m.scene_output))
             return;
@@ -1150,7 +1155,7 @@ pub fn client_is_stopped(client: *Client) bool {
     var in: c.siginfo_t = std.mem.zeroInit(c.siginfo_t, .{});
 
     c.wl_client_get_credentials(client.surface.xdg.client.*.client, &pid, null, null);
-    var r = c.waitid(c.P_PID, @as(u32, @intCast(pid)), &in, c.WNOHANG | c.WCONTINUED | c.WSTOPPED | c.WNOWAIT);
+    const r = c.waitid(c.P_PID, @intCast(pid), &in, c.WNOHANG | c.WCONTINUED | c.WSTOPPED | c.WNOWAIT);
     if (r < 0) {
         if (r == c.ECHILD)
             return true;
@@ -1197,7 +1202,7 @@ pub fn cleanupmon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) v
 pub fn createidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var idle_inhibitor = @as(*c.wlr_idle_inhibitor_v1, @ptrCast(@alignCast(data)));
+    const idle_inhibitor = @as(*c.wlr_idle_inhibitor_v1, @ptrCast(@alignCast(data)));
     c.wl_signal_add(&idle_inhibitor.events.destroy, &idle_inhibitor_destroy);
 
     checkidleinhibitor(null);
@@ -1206,8 +1211,8 @@ pub fn createidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callc
 pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var surface = @as(*c.wlr_surface, @ptrCast(@alignCast(data)));
-    var root_surface = c.wlr_surface_get_root_surface(surface);
+    const surface = @as(*c.wlr_surface, @ptrCast(@alignCast(data)));
+    const root_surface = c.wlr_surface_get_root_surface(surface);
 
     checkidleinhibitor(root_surface);
 }
@@ -1215,9 +1220,9 @@ pub fn destroyidleinhibitor(listener: [*c]c.wl_listener, data: ?*anyopaque) call
 pub fn createpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var wlr_constraint = @as(*c.wlr_pointer_constraint_v1, @ptrCast(@alignCast(data)));
-    var constraint = allocator.create(PointerConstraint) catch unreachable;
-    var sel = focustop(selmon);
+    const wlr_constraint = @as(*c.wlr_pointer_constraint_v1, @ptrCast(@alignCast(data)));
+    const constraint = allocator.create(PointerConstraint) catch unreachable;
+    const sel = focustop(selmon);
 
     var client: ?*Client = null;
     _ = toplevel_from_wlr_surface(wlr_constraint.surface, &client, null);
@@ -1234,7 +1239,7 @@ pub fn createpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) c
 }
 
 pub fn cursorconstrain(wlr_constraint: *c.wlr_pointer_constraint_v1) void {
-    var constraint = @as(*PointerConstraint, @ptrCast(@alignCast(wlr_constraint.data)));
+    const constraint = @as(*PointerConstraint, @ptrCast(@alignCast(wlr_constraint.data)));
 
     if (active_constraint == constraint)
         return;
@@ -1274,8 +1279,8 @@ pub fn cursorwarptoconstrainthint() void {
     const constraint = active_constraint.?.constraint;
 
     if (constraint.current.committed & c.WLR_POINTER_CONSTRAINT_V1_STATE_CURSOR_HINT != 0) {
-        var sx = constraint.current.cursor_hint.x;
-        var sy = constraint.current.cursor_hint.y;
+        const sx = constraint.current.cursor_hint.x;
+        const sy = constraint.current.cursor_hint.y;
         var lx = sx;
         var ly = sy;
 
@@ -1333,14 +1338,14 @@ pub fn commitpointerconstraint(listener: [*c]c.wl_listener, data: ?*anyopaque) c
 pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var wlr_layer_surface = @as(*c.wlr_layer_surface_v1, @ptrCast(@alignCast(data)));
+    const wlr_layer_surface = @as(*c.wlr_layer_surface_v1, @ptrCast(@alignCast(data)));
     if (wlr_layer_surface.output == null)
         wlr_layer_surface.output = if (selmon != null) selmon.?.output else null;
 
     if (wlr_layer_surface.output == null)
         c.wlr_layer_surface_v1_destroy(wlr_layer_surface);
 
-    var layersurface = allocator.create(LayerSurface) catch return;
+    const layersurface = allocator.create(LayerSurface) catch return;
     layersurface.type = .LayerShell;
 
     layersurface.surface_commit.notify = commitlayersurfacenotify;
@@ -1366,7 +1371,7 @@ pub fn createlayersurface(listener: [*c]c.wl_listener, data: ?*anyopaque) callco
 
     layersurface.mon.?.layers[wlr_layer_surface.pending.layer].append(layersurface) catch return;
 
-    var old_state = wlr_layer_surface.current;
+    const old_state = wlr_layer_surface.current;
     wlr_layer_surface.current = wlr_layer_surface.pending;
     layersurface.mapped = true;
     arrangelayers(layersurface.mon.?);
@@ -1377,15 +1382,15 @@ pub fn commitlayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) cal
     var layersurface: *LayerSurface = undefined;
     layersurface = c.wl_container_of(listener, layersurface, "surface_commit");
 
-    var wlr_layer_surface = layersurface.layer_surface;
-    var wlr_output = wlr_layer_surface.output;
+    const wlr_layer_surface = layersurface.layer_surface;
+    const wlr_output = wlr_layer_surface.output;
 
     layersurface.mon = @as(*Monitor, @ptrCast(@alignCast(wlr_output.*.data)));
 
     if (wlr_output == null)
         return;
 
-    var lyr = layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.current.layer)));
+    const lyr = layers.get(@as(Layer, @enumFromInt(wlr_layer_surface.current.layer)));
     if (lyr != layersurface.scene.node.parent) {
         c.wlr_scene_node_reparent(&layersurface.scene.node, lyr);
         c.wlr_scene_node_reparent(&layersurface.popups.node, lyr);
@@ -1405,9 +1410,9 @@ pub fn destroylayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) ca
     var layersurface: *LayerSurface = undefined;
     layersurface = c.wl_container_of(listener, layersurface, "destroy");
 
-    var list = &(layersurface.mon.?.layers[layersurface.layer_surface.pending.layer]);
+    const list = &(layersurface.mon.?.layers[layersurface.layer_surface.pending.layer]);
 
-    var idx = std.mem.indexOf(*LayerSurface, list.*.items, &.{layersurface}) orelse 0;
+    const idx = std.mem.indexOf(*LayerSurface, list.*.items, &.{layersurface}) orelse 0;
     _ = list.*.orderedRemove(idx);
 
     c.wl_list_remove(&layersurface.destroy.link);
@@ -1416,6 +1421,13 @@ pub fn destroylayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) ca
     c.wl_list_remove(&layersurface.surface_commit.link);
     c.wlr_scene_node_destroy(&layersurface.scene.node);
     allocator.destroy(layersurface);
+}
+
+pub fn resizenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
+    var client: *Client = undefined;
+    client = c.wl_container_of(listener, client, "resize");
+
+    resize(client, client.geom, false);
 }
 
 pub fn maplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void {
@@ -1442,18 +1454,18 @@ pub fn unmaplayersurfacenotify(listener: [*c]c.wl_listener, _: ?*anyopaque) call
 
 pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var xdg_surface = @as(*c.wlr_xdg_surface, @ptrCast(@alignCast(data)));
+    const xdg_surface = @as(*c.wlr_xdg_surface, @ptrCast(@alignCast(data)));
     var l: ?*LayerSurface = null;
 
     if (xdg_surface.role == c.WLR_XDG_SURFACE_ROLE_POPUP) {
         var box: c.wlr_box = undefined;
         var client: ?*Client = null;
 
-        var kind = toplevel_from_wlr_surface(xdg_surface.surface, &client, &l);
+        const kind = toplevel_from_wlr_surface(xdg_surface.surface, &client, &l);
 
         if (xdg_surface.unnamed_0.popup.*.parent == null or kind == .Undefined)
             return;
-        var scene_tree: *c.wlr_scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(xdg_surface.unnamed_0.popup.*.parent.*.data)));
+        const scene_tree: *c.wlr_scene_tree = @as(*c.wlr_scene_tree, @ptrCast(@alignCast(xdg_surface.unnamed_0.popup.*.parent.*.data)));
 
         xdg_surface.surface.*.data = c.wlr_scene_xdg_surface_create(scene_tree, xdg_surface);
 
@@ -1467,7 +1479,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     } else if (xdg_surface.role == c.WLR_XDG_SURFACE_ROLE_NONE)
         return;
 
-    var client = allocator.create(Client) catch return;
+    const client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
@@ -1493,18 +1505,18 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_fullscreen, &client.fullscreen);
     client.maximize.notify = maximizenotify;
     c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_maximize, &client.maximize);
+    client.resize.notify = resizenotify;
+    c.wl_signal_add(&xdg_surface.unnamed_0.toplevel.*.events.request_resize, &client.resize);
 }
+
+var updateLock = std.Thread.Mutex{};
 
 pub fn client_update_frame(client: *Client, force: bool) void {
     if (client_is_stopped(client)) return;
 
     if (client.geom.width == 0 or client.geom.height == 0) return;
 
-    if (client.titlescene == null) {
-        client.titlescene = c.wlr_scene_buffer_create(client.scene, null);
-    }
-
-    var targframe = client.frame and !client.isfullscreen;
+    const targframe = client.frame and !client.isfullscreen;
 
     var totalTabs: i32 = 0;
     if (targframe and !client.isfloating) {
@@ -1517,29 +1529,38 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         totalTabs = 1;
     }
 
-    var focused = if (fstack.items.len != 0) client == fstack.items[0] else false;
+    const focused = if (fstack.items.len != 0) client == fstack.items[0] else false;
 
     if (!force and client.hasframe == targframe and client.frameTabs == totalTabs and client.title != null and focused == client.framefocused) return;
+    updateLock.lock();
     client.hasframe = targframe;
     client.frameTabs = totalTabs;
     client.framefocused = focused;
 
-    if (client.title != null) {
-        c.wlr_scene_buffer_set_buffer(client.titlescene, null);
-        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
-        client.title = null;
+    defer {
+        if (client.titlescene) |titlescene| {
+            c.wlr_scene_node_destroy(&titlescene.node);
+        }
+
+        const tmp = c.wlr_buffer_lock(&client.title.?.base);
+        client.titlescene = c.wlr_scene_buffer_create(client.scene, tmp);
+
+        c.wlr_scene_node_set_enabled(&client.titlescene.?.node, client.hasframe);
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @as(i32, @intCast(client.geom.width)), @as(i32, @intCast(client.title.?.unscaled_height)));
+
+        updateLock.unlock();
     }
 
     client.title = buffers.buffer_create_cairo(@as(u32, @intCast(client.geom.width)), @as(u32, @intCast(barheight + client.bw * 2)), bufferScale, true);
 
-    var cairo = client.title.?.cairo;
+    const cairo = client.title.?.cairo;
 
-    var surf = c.cairo_get_target(cairo);
+    const surf = c.cairo_get_target(cairo);
 
     c.cairo_select_font_face(cairo, configData.font.ptr, c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_BOLD);
     c.cairo_set_font_size(cairo, fontsize);
 
-    var tabWidth: f64 = @as(f64, @floatFromInt(client.geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
+    const tabWidth: f64 = @as(f64, @floatFromInt(client.geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
 
     var currentTab: i32 = 0;
     for (clients.items) |tabClient| {
@@ -1547,16 +1568,16 @@ pub fn client_update_frame(client: *Client, force: bool) void {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
-        var palette = if (tabClient == client and focused) configData.colors[0] else configData.colors[1];
+        const palette = if (tabClient == client and focused) configData.colors[0] else configData.colors[1];
         c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
         c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(tabClient.bw)), tabWidth - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight)));
         c.cairo_fill(cairo);
 
-        const title = client_get_title(tabClient) orelse "???";
+        const title = client_get_title(tabClient) orelse bad;
         var exts: c.cairo_text_extents_t = undefined;
         c.cairo_text_extents(cairo, title.ptr, &exts);
 
-        var text_y = (@as(f64, @floatFromInt(barheight)) - fontsize) / 2;
+        const text_y = (@as(f64, @floatFromInt(barheight)) - fontsize) / 2;
 
         c.cairo_move_to(cairo, @as(f64, @floatFromInt(tabClient.bw + barpadding)) + tabWidth * @as(f64, @floatFromInt(currentTab)), text_y + fontsize);
         c.cairo_text_path(cairo, title.ptr);
@@ -1564,9 +1585,9 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         c.cairo_fill(cairo);
         const default: []const u8 = " ";
 
-        var tmpIcon = tabClient.icon orelse default[0..1];
+        const tmpIcon = tabClient.icon orelse default[0..1];
 
-        var icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
+        const icon = allocator.dupeZ(u8, tmpIcon) catch unreachable;
         defer allocator.free(icon);
 
         c.cairo_text_extents(cairo, icon.ptr, &exts);
@@ -1580,14 +1601,6 @@ pub fn client_update_frame(client: *Client, force: bool) void {
     }
 
     c.cairo_surface_flush(surf);
-
-    c.wlr_scene_buffer_set_buffer(client.titlescene, &client.title.?.base);
-
-    if (client.hasframe) {
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @as(i32, @intCast(client.geom.width)), @as(i32, @intCast(client.title.?.unscaled_height)));
-    } else {
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, 1, 1);
-    }
 }
 
 pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1654,7 +1667,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
         printstatus();
     }
 
-    var mon = client.mon orelse xytomon(@as(f64, @floatFromInt(client.geom.x)), @as(f64, @floatFromInt(client.geom.y)));
+    const mon = client.mon orelse xytomon(@as(f64, @floatFromInt(client.geom.x)), @as(f64, @floatFromInt(client.geom.y)));
     for (clients.items) |w|
         if (w != client and w.isfullscreen and mon == w.mon and (w.tags & client.tags != 0))
             setfullscreen(w, false);
@@ -1697,10 +1710,11 @@ pub fn client_get_geometry(client: *Client, geom: *c.wlr_box) void {
 
 pub fn applyrules(client: *Client) void {
     client.isfloating = client_is_float_type(client);
-    var mon = selmon;
+    const appid = client_get_appid(client) orelse "broken";
+    const title = client_get_title(client) orelse "broken";
+
     var newtags: u32 = 0;
-    var appid = client_get_appid(client) orelse "broken";
-    var title = client_get_title(client) orelse "broken";
+    var mon = selmon;
 
     for (configData.rules) |r| {
         std.log.info("{any}", .{r});
@@ -1763,7 +1777,7 @@ pub fn client_is_float_type(client: *Client) bool {
     client_get_size_hints(client, &min, &max);
 
     if (client.type == .X11Managed or client.type == .X11Unmanaged) {
-        var surface = client.surface.xwayland;
+        const surface = client.surface.xwayland;
         if (surface.modal)
             return true;
 
@@ -1791,8 +1805,8 @@ pub fn commitnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
         else
             arrange(client.mon.?);
 
-    if (client.resize != 0 and client.resize <= client.surface.xdg.current.configure_serial)
-        client.resize = 0;
+    if (client.resize_serial != 0 and client.resize_serial <= client.surface.xdg.current.configure_serial)
+        client.resize_serial = 0;
 }
 
 pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1812,8 +1826,8 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
         if (client_surface(client) == seat.keyboard_state.focused_surface)
             focusclient(client, true);
     } else {
-        var cidx = std.mem.indexOf(*Client, clients.items, &.{client}) orelse return;
-        var fidx = std.mem.indexOf(*Client, fstack.items, &.{client}) orelse return;
+        const cidx = std.mem.indexOf(*Client, clients.items, &.{client}) orelse return;
+        const fidx = std.mem.indexOf(*Client, fstack.items, &.{client}) orelse return;
         _ = clients.orderedRemove(cidx);
         setmon(client, null, 0);
         _ = fstack.orderedRemove(fidx);
@@ -1821,6 +1835,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 
     c.wl_list_remove(&client.commit.link);
     c.wlr_scene_node_destroy(&client.scene.node);
+    client.titlescene = null;
     printstatus();
     motionnotify(0, null, 0, 0, 0, 0);
 }
@@ -1828,7 +1843,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn outputmgrapply(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var config = @as(*c.wlr_output_configuration_v1, @ptrCast(@alignCast(data)));
+    const config = @as(*c.wlr_output_configuration_v1, @ptrCast(@alignCast(data)));
 
     outputmgrapplyortest(config, false);
 }
@@ -1842,9 +1857,9 @@ pub fn outputmgrapplyortest(config: *c.wlr_output_configuration_v1, tst: bool) v
     while (&config_head.link != &config.heads) {
         config_head = c.wl_container_of(config_head.link.next, config_head, "link");
 
-        var wlr_output = config_head.state.output;
+        const wlr_output = config_head.state.output;
         prefix: {
-            var m = @as(*Monitor, @ptrCast(@alignCast(wlr_output.*.data)));
+            const m = @as(*Monitor, @ptrCast(@alignCast(wlr_output.*.data)));
             c.wlr_output_enable(wlr_output, config_head.state.enabled);
             if (!config_head.state.enabled) break :prefix;
             if (config_head.state.mode != 0) {
@@ -1889,21 +1904,21 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn setpsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @as(*c.wlr_seat_request_set_primary_selection_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_seat_request_set_primary_selection_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_set_primary_selection(seat, event.source, event.serial);
 }
 
 pub fn setsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @as(*c.wlr_seat_request_set_selection_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_seat_request_set_selection_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_set_selection(seat, event.source, event.serial);
 }
 
 pub fn setcursor(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @as(*c.wlr_seat_pointer_request_set_cursor_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_seat_pointer_request_set_cursor_event, @ptrCast(@alignCast(data)));
 
     if (cursor_mode != .CurNormal and cursor_mode != .CurPressed)
         return;
@@ -1954,17 +1969,17 @@ pub fn destroynotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
         c.wl_list_remove(&client.activate.link);
     }
 
-    if (client.titlescene != null)
-        client.title.?.base.impl.*.destroy.?(&client.title.?.base);
+    if (client.titlescene) |titlescene|
+        c.wlr_scene_node_destroy(&titlescene.node);
 
     allocator.destroy(client);
 }
 
 pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var xsurface = @as(*c.wlr_xwayland_surface, @ptrCast(@alignCast(data)));
+    const xsurface = @as(*c.wlr_xwayland_surface, @ptrCast(@alignCast(data)));
 
-    var client = allocator.create(Client) catch return;
+    const client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
@@ -1994,6 +2009,8 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
     c.wl_signal_add(&xsurface.events.destroy, &client.destroy);
     client.fullscreen.notify = fullscreennotify;
     c.wl_signal_add(&xsurface.events.request_fullscreen, &client.fullscreen);
+    client.resize.notify = resizenotify;
+    c.wl_signal_add(&xsurface.events.request_resize, &client.resize);
 }
 
 pub fn activatex11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -2010,7 +2027,7 @@ pub fn configurex11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     var client: *Client = undefined;
     client = c.wl_container_of(listener, client, "configure");
 
-    var event = @as(*c.wlr_xwayland_surface_configure_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_xwayland_surface_configure_event, @ptrCast(@alignCast(data)));
     if (client.mon == null)
         return;
     if (client.isfloating or client.type == .X11Unmanaged)
@@ -2045,13 +2062,13 @@ pub fn destroysessionmgr(_: [*c]c.wl_listener, _: ?*anyopaque) callconv(.C) void
 
 pub fn createdecoration(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var dec = @as(*c.wlr_xdg_toplevel_decoration_v1, @ptrCast(@alignCast(data)));
+    const dec = @as(*c.wlr_xdg_toplevel_decoration_v1, @ptrCast(@alignCast(data)));
     _ = c.wlr_xdg_toplevel_decoration_v1_set_mode(dec, c.WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 }
 
 pub fn requeststartdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var event = @as(*c.wlr_seat_request_start_drag_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_seat_request_start_drag_event, @ptrCast(@alignCast(data)));
     if (c.wlr_seat_validate_pointer_grab_serial(seat, event.origin, event.serial))
         c.wlr_seat_start_pointer_drag(seat, event.drag, event.serial)
     else
@@ -2060,7 +2077,7 @@ pub fn requeststartdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv
 
 pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var drag = @as(*c.wlr_drag, @ptrCast(@alignCast(data)));
+    const drag = @as(*c.wlr_drag, @ptrCast(@alignCast(data)));
 
     if (drag.icon == null) return;
 
@@ -2071,7 +2088,7 @@ pub fn startdrag(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
 pub fn destroydragicon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var icon = @as(*c.wlr_drag_icon, @ptrCast(@alignCast(data)));
+    const icon = @as(*c.wlr_drag_icon, @ptrCast(@alignCast(data)));
 
     c.wlr_scene_node_destroy(@as(*c.wlr_scene_node, @ptrCast(@alignCast(icon.data))));
 
@@ -2082,7 +2099,7 @@ pub fn destroydragicon(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
 pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @as(*c.wlr_pointer_motion_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_pointer_motion_event, @ptrCast(@alignCast(data)));
 
     motionnotify(event.time_msec, &event.pointer.*.base, event.delta_x, event.delta_y, event.unaccel_dx, event.unaccel_dy);
 }
@@ -2090,7 +2107,7 @@ pub fn motionrelative(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
 
-    var event = @as(*c.wlr_pointer_motion_absolute_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_pointer_motion_absolute_event, @ptrCast(@alignCast(data)));
 
     var lx: f64 = undefined;
     var ly: f64 = undefined;
@@ -2105,7 +2122,7 @@ pub fn motionabsolute(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.
 
 pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var event = @as(*c.wlr_pointer_button_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_pointer_button_event, @ptrCast(@alignCast(data)));
 
     c.wlr_idle_notify_activity(idle, seat);
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
@@ -2123,8 +2140,8 @@ pub fn buttonpress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
             if (client != null and (client.?.type != .X11Unmanaged or client_wants_focus(client.?)))
                 focusclient(client.?, true);
 
-            var keyboard = c.wlr_seat_get_keyboard(seat);
-            var mods = if (keyboard != null) c.wlr_keyboard_get_modifiers(keyboard) else 0;
+            const keyboard = c.wlr_seat_get_keyboard(seat);
+            const mods = if (keyboard != null) c.wlr_keyboard_get_modifiers(keyboard) else 0;
 
             for (configData.buttons) |b| {
                 if (cleanmask(mods) == cleanmask(b.mod) and event.button == b.button) {
@@ -2155,7 +2172,7 @@ pub fn axisnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) v
     c.wlr_idle_notify_activity(idle, seat);
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
-    var event = @as(*c.wlr_pointer_axis_event, @ptrCast(@alignCast(data)));
+    const event = @as(*c.wlr_pointer_axis_event, @ptrCast(@alignCast(data)));
     c.wlr_seat_pointer_notify_axis(seat, event.time_msec, event.orientation, event.delta, event.delta_discrete, event.source);
 }
 
@@ -2181,13 +2198,14 @@ pub fn keypressmod(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     var kb: *Keyboard = undefined;
     kb = c.wl_container_of(listener, kb, "key");
-    var event = @as(*c.wlr_keyboard_key_event, @ptrCast(@alignCast(data)));
-    var keycode: u32 = event.keycode + 8;
-    var syms: [*c]const u32 = undefined;
-    var nsyms = c.xkb_state_key_get_syms(kb.wlr_keyboard.xkb_state, keycode, &syms);
 
     var handled = false;
-    var mods = c.wlr_keyboard_get_modifiers(kb.wlr_keyboard);
+    var syms: [*c]const u32 = undefined;
+    const event = @as(*c.wlr_keyboard_key_event, @ptrCast(@alignCast(data)));
+    const keycode: u32 = event.keycode + 8;
+    const nsyms = c.xkb_state_key_get_syms(kb.wlr_keyboard.xkb_state, keycode, &syms);
+
+    const mods = c.wlr_keyboard_get_modifiers(kb.wlr_keyboard);
 
     c.wlr_idle_notify_activity(idle, seat);
     c.wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
@@ -2216,7 +2234,7 @@ pub fn keypress(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) voi
 
 pub fn inputdevice(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = listener;
-    var device = @as(*c.wlr_input_device, @ptrCast(@alignCast(data)));
+    const device = @as(*c.wlr_input_device, @ptrCast(@alignCast(data)));
 
     switch (device.type) {
         c.WLR_INPUT_DEVICE_KEYBOARD => createkeyboard(c.wlr_keyboard_from_input_device(device)),
@@ -2248,7 +2266,7 @@ pub fn keybinding(mods: u32, sym: c.xkb_keysym_t) bool {
 }
 
 pub fn keyrepeat(data: ?*anyopaque) callconv(.C) c_int {
-    var kb = @as(*Keyboard, @ptrCast(@alignCast(data)));
+    const kb = @as(*Keyboard, @ptrCast(@alignCast(data)));
 
     if (kb.keysyms.len != 0 and kb.wlr_keyboard.repeat_info.rate > 0) {
         _ = c.wl_event_source_timer_update(kb.key_repeat_source, @divTrunc(1000, kb.wlr_keyboard.repeat_info.rate));
@@ -2269,14 +2287,20 @@ pub fn client_send_close(client: *Client) void {
 }
 
 pub fn spawn(arg: *const cfg.Config.Arg) void {
-    var proc = std.ChildProcess.init(arg.v, allocator);
+    if (c.fork() == 0) {
+        var proc = std.ChildProcess.init(arg.v, allocator);
+        proc.stderr_behavior = .Ignore;
+        proc.stdin_behavior = .Ignore;
+        proc.stdout_behavior = .Ignore;
 
-    proc.spawn() catch return;
+        _ = proc.spawnAndWait() catch unreachable;
+        std.c.exit(0);
+    }
 }
 
 pub fn setlayout(arg: *const cfg.Config.Arg) void {
     if (selmon == null) return;
-    var lt = @as(usize, @intCast(arg.i));
+    const lt = @as(usize, @intCast(arg.i));
 
     if (arg.i != selmon.?.lt[selmon.?.sellt])
         selmon.?.sellt ^= 1;
@@ -2323,14 +2347,14 @@ pub fn tag(arg: *const cfg.Config.Arg) void {
 
 pub fn togglefloating(arg: *const cfg.Config.Arg) void {
     _ = arg;
-    var sel = focustop(selmon);
+    const sel = focustop(selmon);
     if (sel != null)
         setfloating(sel.?, !sel.?.isfloating);
 }
 
 pub fn togglefullscreen(arg: *const cfg.Config.Arg) void {
     _ = arg;
-    var sel = focustop(selmon);
+    const sel = focustop(selmon);
     if (sel != null)
         setfullscreen(sel.?, !sel.?.isfullscreen);
 }
@@ -2338,12 +2362,7 @@ pub fn togglefullscreen(arg: *const cfg.Config.Arg) void {
 pub fn reload(arg: *const cfg.Config.Arg) void {
     _ = arg;
     {
-        var newConfig = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
-
-        configData.colors = newConfig.colors;
-        configData.keys = newConfig.keys;
-        configData.buttons = newConfig.buttons;
-        configData.font = newConfig.font;
+        configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
 
         for (clients.items) |client| {
             client_update_frame(client, true);
@@ -2359,25 +2378,28 @@ pub fn reload(arg: *const cfg.Config.Arg) void {
 
 pub fn killclient(arg: *const cfg.Config.Arg) void {
     _ = arg;
-    var sel = focustop(selmon);
+    const sel = focustop(selmon);
     if (sel != null)
         client_send_close(sel.?);
 }
 
 pub fn focusstack(arg: *const cfg.Config.Arg) void {
-    var sel = focustop(selmon);
+    const sel = focustop(selmon);
     if (sel) |selmonsel| {
         if (selmonsel.isfloating) return;
 
-        var targ = selmonsel.container;
-        var start_mon = selmonsel.mon;
+        const targ = selmonsel.container;
+        const targ_tags = selmonsel.tags;
+        const start_mon = selmonsel.mon;
 
         var idx = std.mem.indexOf(*Client, clients.items, &.{selmonsel}) orelse return;
-        var start = idx;
+        const start = idx;
         idx += @as(usize, @intCast(arg.i));
         if (idx >= (clients.items.len)) idx = 0;
 
-        while ((clients.items[idx].container != targ or clients.items[idx].mon != start_mon or clients.items[idx].isfloating) and idx != start) {
+        while ((clients.items[idx].container != targ or clients.items[idx].mon != start_mon or clients.items[idx].isfloating or
+            clients.items[idx].tags & targ_tags == 0) and idx != start)
+        {
             idx += @as(usize, @intCast(arg.i));
             if (idx >= (clients.items.len)) idx = 0;
         }
@@ -2416,7 +2438,7 @@ pub fn moveresize(arg: *const cfg.Config.Arg) void {
 }
 
 pub fn setcon(arg: *const cfg.Config.Arg) void {
-    var sel = focustop(selmon);
+    const sel = focustop(selmon);
     if (sel != null) {
         sel.?.container = @as(u8, @intCast(arg.ui));
         setfloating(sel.?, false);
@@ -2443,8 +2465,8 @@ pub fn createkeyboard(keyboard: *c.wlr_keyboard) void {
     keyboard.data = kb;
     kb.wlr_keyboard = keyboard;
 
-    var context = c.xkb_context_new(c.XKB_CONTEXT_NO_FLAGS);
-    var keymap = c.xkb_keymap_new_from_names(context, &xkb_rules, c.XKB_KEYMAP_COMPILE_NO_FLAGS);
+    const context = c.xkb_context_new(c.XKB_CONTEXT_NO_FLAGS);
+    const keymap = c.xkb_keymap_new_from_names(context, &xkb_rules, c.XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     _ = c.wlr_keyboard_set_keymap(keyboard, keymap);
     c.xkb_keymap_unref(keymap);
@@ -2466,7 +2488,7 @@ pub fn createkeyboard(keyboard: *c.wlr_keyboard) void {
 
 pub fn createpointer(pointer: *c.wlr_pointer) void {
     if (c.wlr_input_device_is_libinput(&pointer.base)) {
-        var libinput_device = c.wlr_libinput_get_device_handle(&pointer.base);
+        const libinput_device = c.wlr_libinput_get_device_handle(&pointer.base);
         if (c.libinput_device_config_scroll_has_natural_scroll(libinput_device) != 0)
             _ = c.libinput_device_config_scroll_set_natural_scroll_enabled(libinput_device, natural_scrolling);
 
@@ -2499,8 +2521,8 @@ pub fn createpointer(pointer: *c.wlr_pointer) void {
 
 pub fn getatom(xc: ?*c.xcb_connection_t, name: [*c]const u8) c.Atom {
     var atom: c.Atom = 0;
-    var cookie = c.xcb_intern_atom(xc, 0, @as(u16, @intCast(c.strlen(name))), name);
-    var reply = c.xcb_intern_atom_reply(xc, cookie, null) orelse return atom;
+    const cookie = c.xcb_intern_atom(xc, 0, @as(u16, @intCast(c.strlen(name))), name);
+    const reply = c.xcb_intern_atom_reply(xc, cookie, null) orelse return atom;
     atom = reply.*.atom;
     c.free(reply);
 
@@ -2510,9 +2532,9 @@ pub fn getatom(xc: ?*c.xcb_connection_t, name: [*c]const u8) c.Atom {
 pub fn xwaylandready(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     _ = data;
     _ = listener;
-    var xc = c.xcb_connect(xwayland.display_name, null);
+    const xc = c.xcb_connect(xwayland.display_name, null);
 
-    var err = c.xcb_connection_has_error(xc);
+    const err = c.xcb_connection_has_error(xc);
     if (err != 0) {
         std.log.info("xcb_connect to X server failed with code {}\n. Continuing with degraded functionality.\n", .{err});
         return;
@@ -2540,12 +2562,20 @@ pub fn xwaylandready(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C
     c.xcb_disconnect(xc);
 }
 
-pub fn setup() !void {
-    var sa: c.struct_sigaction = .{ .sa_flags = c.SA_RESTART, .__sigaction_handler = .{ .sa_handler = sigchld }, .sa_mask = undefined, .sa_restorer = undefined };
-    _ = c.sigemptyset(&sa.sa_mask);
-    _ = c.sigaction(c.SIGCHLD, &sa, null);
+const Sigs = [_]c_int{ c.SIGCHLD, c.SIGINT, c.SIGTERM, c.SIGPIPE };
 
-    var ssa: c.struct_sigaction = .{ .sa_flags = c.SA_RESTART, .__sigaction_handler = .{ .sa_handler = sigusr1 }, .sa_mask = undefined, .sa_restorer = undefined };
+pub fn setup() !void {
+    var sa: c.struct_sigaction = std.mem.zeroes(c.struct_sigaction);
+    sa.sa_flags = c.SA_RESTART;
+    sa.__sigaction_handler = .{ .sa_handler = handlesig };
+    _ = c.sigemptyset(&sa.sa_mask);
+
+    for (Sigs) |sig|
+        _ = c.sigaction(sig, &sa, null);
+
+    var ssa: c.struct_sigaction = std.mem.zeroes(c.struct_sigaction);
+    ssa.sa_flags = c.SA_RESTART;
+    ssa.__sigaction_handler = .{ .sa_handler = sigusr1 };
 
     _ = c.sigaction(c.SIGUSR1, &ssa, null);
 
@@ -2678,7 +2708,7 @@ pub fn setup() !void {
 }
 
 pub fn xytomon(x: f64, y: f64) ?*Monitor {
-    var o: *c.wlr_output = c.wlr_output_layout_output_at(output_layout, x, y) orelse {
+    const o: *c.wlr_output = c.wlr_output_layout_output_at(output_layout, x, y) orelse {
         return null;
     };
     return @as(?*Monitor, @ptrCast(@alignCast(o.data)));
@@ -2699,8 +2729,8 @@ pub fn printstatus() void {
         }
 
         if (focustop(mon)) |client| {
-            var title = client_get_title(client) orelse "broken";
-            var appid = client_get_appid(client) orelse "broken";
+            const title = client_get_title(client) orelse "broken";
+            const appid = client_get_appid(client) orelse "broken";
 
             _ = c.printf("%s title %s\n", mon.output.name, title.ptr);
             _ = c.printf("%s appid %s\n", mon.output.name, appid.ptr);
@@ -2725,6 +2755,7 @@ pub fn printstatus() void {
 }
 
 pub fn run(startup_cmd: ?[]const u8) !void {
+    _ = startup_cmd;
     const socket = c.wl_display_add_socket_auto(dpy) orelse {
         return error.SocketFailed;
     };
@@ -2733,22 +2764,22 @@ pub fn run(startup_cmd: ?[]const u8) !void {
 
     if (!c.wlr_backend_start(backend)) return error.BackendStart;
 
-    if (startup_cmd) |startup| {
-        var tmp = [_]i32{ 0, 0 };
-        var piperw: []i32 = &tmp;
-        if (c.pipe(piperw.ptr) < 0)
-            return error.StartupPipe;
-        if (c.fork() != 0) {
-            _ = c.dup2(piperw[0], c.STDIN_FILENO);
-            _ = c.close(piperw[0]);
-            _ = c.close(piperw[1]);
-            _ = c.execl("/bin/sh", "/bin/sh", "-c", startup.ptr);
-            std.c.exit(0);
-        }
-        _ = c.dup2(piperw[1], c.STDOUT_FILENO);
-        _ = c.close(piperw[1]);
-        _ = c.close(piperw[0]);
-    }
+    //if (startup_cmd) |startup| {
+    //    var tmp = [_]i32{ 0, 0 };
+    //    var piperw: []i32 = &tmp;
+    //    if (c.pipe(piperw.ptr) < 0)
+    //        return error.StartupPipe;
+    //    if (c.fork() != 0) {
+    //        _ = c.dup2(piperw[0], c.STDIN_FILENO);
+    //        _ = c.close(piperw[0]);
+    //        _ = c.close(piperw[1]);
+    //        _ = c.execl("/bin/sh", "/bin/sh", "-c", startup.ptr);
+    //        std.c.exit(0);
+    //    }
+    //    _ = c.dup2(piperw[1], c.STDOUT_FILENO);
+    //    _ = c.close(piperw[1]);
+    //    _ = c.close(piperw[0]);
+    //}
 
     printstatus();
 
@@ -2765,10 +2796,7 @@ pub fn run(startup_cmd: ?[]const u8) !void {
 }
 
 pub fn sigusr1(_: c_int) callconv(.C) void {
-    var newConfig = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
-
-    configData.colors = newConfig.colors;
-    //configData.keys = newConfig.keys;
+    configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
 
     for (clients.items) |client| {
         client_update_frame(client, true);
@@ -2777,13 +2805,21 @@ pub fn sigusr1(_: c_int) callconv(.C) void {
     }
 }
 
-pub fn sigchld(_: c_int) callconv(.C) void {
-    var in: c.siginfo_t = undefined;
+pub fn handlesig(sig: c_int) callconv(.C) void {
+    switch (sig) {
+        c.SIGCHLD => {
+            var in: c.siginfo_t = undefined;
 
-    while (c.waitid(c.P_ALL, 0, &in, c.WEXITED | c.WNOHANG | c.WNOWAIT) == 0 and
-        in._sifields._rt.si_pid != 0 and (in._sifields._rt.si_pid != xwayland.server.*.pid))
-    {
-        _ = c.waitpid(in._sifields._rt.si_pid, null, 0);
+            while (c.waitid(c.P_ALL, 0, &in, c.WEXITED | c.WNOHANG | c.WNOWAIT) == 0 and
+                in._sifields._rt.si_pid != 0 and (in._sifields._rt.si_pid != xwayland.server.*.pid))
+            {
+                _ = c.waitpid(in._sifields._rt.si_pid, null, 0);
+            }
+        },
+        c.SIGINT, c.SIGTERM => {
+            quit(&.{ .i = 0 });
+        },
+        else => {},
     }
 }
 
@@ -2804,7 +2840,7 @@ pub fn checkconstraintregion() void {
 
         if (c.pixman_region32_contains_point(region, @as(i32, @intFromFloat(sx)), @as(i32, @intFromFloat(sy)), null) != 0) {
             var nboxes: i32 = 0;
-            var boxes = c.pixman_region32_rectangles(region, &nboxes);
+            const boxes = c.pixman_region32_rectangles(region, &nboxes);
             if (nboxes > 0) {
                 sx = @as(f64, @floatFromInt(@divFloor(boxes[0].x1 + boxes[0].x2, 2)));
                 sy = @as(f64, @floatFromInt(@divFloor(boxes[0].y1 + boxes[0].y2, 2)));
@@ -2844,6 +2880,10 @@ pub fn cleanup() !void {
 }
 
 pub fn main() !void {
+    if (c.getenv("XDG_RUNTIME_DIR") == null) {
+        return error.Lol;
+    }
+
     try setup();
     try run(null);
     try cleanup();
