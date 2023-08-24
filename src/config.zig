@@ -117,6 +117,11 @@ pub const Config = struct {
                 .func = main.view,
                 .arg = .{ .ui = std.math.pow(u32, 2, try std.fmt.parseInt(u32, iter.next() orelse "0", 0)) },
             };
+        } else if (std.mem.eql(u8, cmd, "send")) {
+            return .{
+                .func = main.tag,
+                .arg = .{ .ui = std.math.pow(u32, 2, try std.fmt.parseInt(u32, iter.next() orelse "0", 0)) },
+            };
         } else if (std.mem.eql(u8, cmd, "reload")) {
             return .{
                 .func = main.reload,
@@ -147,6 +152,11 @@ pub const Config = struct {
         } else if (std.mem.eql(u8, cmd, "sendcon")) {
             return .{
                 .func = main.setcon,
+                .arg = .{ .ui = try std.fmt.parseInt(u32, iter.next() orelse "0", 0) },
+            };
+        } else if (std.mem.eql(u8, cmd, "focuscon")) {
+            return .{
+                .func = main.focuscon,
                 .arg = .{ .ui = try std.fmt.parseInt(u32, iter.next() orelse "0", 0) },
             };
         } else if (std.mem.eql(u8, cmd, "focusstack")) {

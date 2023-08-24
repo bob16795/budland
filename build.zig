@@ -24,10 +24,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    exe.addIncludePath("/usr/include");
-    exe.addIncludePath("include");
-    exe.addIncludePath("/usr/include/pixman-1");
-    exe.addObjectFile("include/dwl-ipc-unstable-v2-protocol.c");
+    exe.addIncludePath(.{ .path = "/usr/include" });
+    exe.addIncludePath(.{ .path = "include" });
+    exe.addIncludePath(.{ .path = "/usr/include/pixman-1" });
+    exe.addObjectFile(.{ .path = "include/dwl-ipc-unstable-v2-protocol.c" });
     exe.linkSystemLibrary("wlroots");
     exe.linkSystemLibrary("wayland-server");
     exe.linkSystemLibrary("xkbcommon");

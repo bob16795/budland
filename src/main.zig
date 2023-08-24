@@ -36,24 +36,13 @@ const accel_speed = 10.0;
 const button_map = c.LIBINPUT_CONFIG_TAP_MAP_LRM;
 
 const repeat_rate = 25;
-const repeat_delay = 600;
+const repeat_delay = 200;
 
 const builtin = @import("builtin");
 pub const useclib = true;
 
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
-
-//    // tags
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F1, .func = view, .arg = .{ .ui = 1 << 0 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F1, .func = tag, .arg = .{ .ui = 1 << 0 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F2, .func = view, .arg = .{ .ui = 1 << 1 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F2, .func = tag, .arg = .{ .ui = 1 << 1 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F3, .func = view, .arg = .{ .ui = 1 << 2 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F3, .func = tag, .arg = .{ .ui = 1 << 2 } },
-//    .{ .mod = MODKEY, .keysym = c.XKB_KEY_F4, .func = view, .arg = .{ .ui = 1 << 3 } },
-//    .{ .mod = MODKEY | c.WLR_MODIFIER_SHIFT, .keysym = c.XKB_KEY_F4, .func = tag, .arg = .{ .ui = 1 << 3 } },
-//};
 
 pub const Cursors = enum {
     CurNormal,
@@ -752,10 +741,12 @@ pub fn motionnotify(time: u32, device: ?*c.wlr_input_device, adx: f64, ady: f64,
     }
 
     if (cursor_mode == .CurMove) {
-        resize(grabc.?, .{ .x = @as(i32, @intFromFloat(cursor.x)) - grabcx, .y = @as(i32, @intFromFloat(cursor.y)) - grabcy, .width = grabc.?.geom.width, .height = grabc.?.geom.height }, true);
+        if (!grabc.?.isfullscreen)
+            resize(grabc.?, .{ .x = @as(i32, @intFromFloat(cursor.x)) - grabcx, .y = @as(i32, @intFromFloat(cursor.y)) - grabcy, .width = grabc.?.geom.width, .height = grabc.?.geom.height }, true);
         return;
     } else if (cursor_mode == .CurResize) {
-        resize(grabc.?, .{ .x = grabc.?.geom.x, .y = grabc.?.geom.y, .width = @as(i32, @intFromFloat(cursor.x)) - grabc.?.geom.x, .height = @as(i32, @intFromFloat(cursor.y)) - grabc.?.geom.y }, true);
+        if (!grabc.?.isfullscreen)
+            resize(grabc.?, .{ .x = grabc.?.geom.x, .y = grabc.?.geom.y, .width = @as(i32, @intFromFloat(cursor.x)) - grabc.?.geom.x, .height = @as(i32, @intFromFloat(cursor.y)) - grabc.?.geom.y }, true);
         return;
     }
 
@@ -1568,6 +1559,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
+
         const palette = if (tabClient == client and focused) configData.colors[0] else configData.colors[1];
         c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
         c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(tabClient.bw)), tabWidth - @as(f64, @floatFromInt(tabClient.bw)), @as(f64, @floatFromInt(barheight)));
@@ -1591,6 +1583,14 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         defer allocator.free(icon);
 
         c.cairo_text_extents(cairo, icon.ptr, &exts);
+
+        const pat = c.cairo_pattern_create_linear(@as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab + 1)) - exts.width - @as(f64, @floatFromInt(tabClient.bw)) - 30, @floatFromInt(tabClient.bw), @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab + 1)) - exts.width - @as(f64, @floatFromInt(tabClient.bw)), 0);
+        c.cairo_pattern_add_color_stop_rgba(pat, 0, palette[2][2], palette[2][1], palette[2][0], 0);
+        c.cairo_pattern_add_color_stop_rgba(pat, 1, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
+
+        c.cairo_set_source(cairo, pat);
+        c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab + 1)) - exts.width - @as(f64, @floatFromInt(tabClient.bw)) - 30, @floatFromInt(tabClient.bw), exts.width + @as(f64, @floatFromInt(tabClient.bw)) + 30, @floatFromInt(barheight));
+        c.cairo_fill(cairo);
 
         c.cairo_move_to(cairo, @as(f64, @floatFromInt(currentTab + 1)) * tabWidth - exts.width - @as(f64, @floatFromInt(tabClient.bw)), text_y + fontsize);
         c.cairo_set_source_rgba(cairo, palette[1][2], palette[1][1], palette[1][0], palette[1][3]);
@@ -2287,15 +2287,8 @@ pub fn client_send_close(client: *Client) void {
 }
 
 pub fn spawn(arg: *const cfg.Config.Arg) void {
-    if (c.fork() == 0) {
-        var proc = std.ChildProcess.init(arg.v, allocator);
-        proc.stderr_behavior = .Ignore;
-        proc.stdin_behavior = .Ignore;
-        proc.stdout_behavior = .Ignore;
-
-        _ = proc.spawnAndWait() catch unreachable;
-        std.c.exit(0);
-    }
+    var proc = std.ChildProcess.init(arg.v, allocator);
+    proc.spawn() catch return;
 }
 
 pub fn setlayout(arg: *const cfg.Config.Arg) void {
@@ -2445,6 +2438,15 @@ pub fn setcon(arg: *const cfg.Config.Arg) void {
 
         arrange(selmon.?);
     }
+}
+
+pub fn focuscon(arg: *const cfg.Config.Arg) void {
+    if (selmon) |mon|
+        for (fstack.items) |client| {
+            if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and client.container == arg.ui) {
+                focusclient(client, true);
+            }
+        };
 }
 
 pub fn quit(_: *const cfg.Config.Arg) void {
