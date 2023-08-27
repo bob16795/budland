@@ -163,6 +163,7 @@ const Client = struct {
     geom: c.wlr_box,
     mon: ?*Monitor,
     scene: *c.wlr_scene_tree,
+    shadow_scene: *c.wlr_scene_tree,
     title: ?*buffers.DataBuffer,
     titlescene: ?*c.wlr_scene_buffer,
     border: [4]*c.wlr_scene_rect,
@@ -185,10 +186,15 @@ const Client = struct {
     fullscreen: c.wl_listener,
     resize: c.wl_listener,
 
+    // frame stuff
     frame: bool = false,
     framefocused: bool = false,
     hasframe: bool = false,
     frameTabs: i32 = 0,
+    frame_width: c_int = 0,
+
+    // shadow stuff
+    shadow: ?*c.wlr_scene_rect,
 
     // xwayland
     activate: c.wl_listener,
@@ -474,26 +480,39 @@ pub fn focustop(m: ?*Monitor) ?*Client {
 pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
     _ = client_set_bounds(client, geo.width, geo.height);
 
-    const old = client.geom.width;
     client.geom = geo;
-
-    client_update_frame(client, old != client.geom.width);
 
     const bbox: *c.wlr_box = if (interact) &sgeom else &client.mon.?.w;
     applybounds(client, bbox);
 
     const titleheight: i32 = if (client.hasframe) barheight + client.bw else 0;
 
+    var geom = std.mem.zeroes(c.wlr_box);
+    client_get_geometry(client, &geom);
+
+    geom.width += client.bw * 2;
+    geom.height += client.bw * 2 + barheight;
+
+    if (!client.isfloating) geom = client.geom;
+
+    if (client.shadow) |shadow| {
+        c.wlr_scene_node_set_enabled(&shadow.node, client.isfloating);
+        c.wlr_scene_node_set_position(&shadow.node, client.geom.x + 10, client.geom.y + 10);
+        c.wlr_scene_rect_set_size(shadow, geom.width, geom.height);
+    }
+
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
     c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw + titleheight);
-    c.wlr_scene_rect_set_size(client.border[0], client.geom.width, client.bw + titleheight);
-    c.wlr_scene_rect_set_size(client.border[1], client.geom.width, client.bw);
-    c.wlr_scene_rect_set_size(client.border[2], client.bw, client.geom.height - 2 * client.bw);
-    c.wlr_scene_rect_set_size(client.border[3], client.bw, client.geom.height - 2 * client.bw);
-    c.wlr_scene_node_set_position(&client.border[1].node, 0, client.geom.height - client.bw);
+    c.wlr_scene_rect_set_size(client.border[0], geom.width, client.bw + titleheight);
+    c.wlr_scene_rect_set_size(client.border[1], geom.width, client.bw);
+    c.wlr_scene_rect_set_size(client.border[2], client.bw, geom.height - 2 * client.bw);
+    c.wlr_scene_rect_set_size(client.border[3], client.bw, geom.height - 2 * client.bw);
+    c.wlr_scene_node_set_position(&client.border[1].node, 0, geom.height - client.bw);
     c.wlr_scene_node_set_position(&client.border[2].node, 0, client.bw);
-    c.wlr_scene_node_set_position(&client.border[3].node, client.geom.width - client.bw, client.bw);
+    c.wlr_scene_node_set_position(&client.border[3].node, geom.width - client.bw, client.bw);
     client.resize_serial = client_set_size(client, client.geom.width - 2 * client.bw, client.geom.height - 2 * client.bw - titleheight);
+
+    client_update_frame(client);
 }
 
 pub fn client_set_bounds(client: *Client, w: i32, h: i32) u32 {
@@ -527,7 +546,7 @@ pub fn client_set_size(client: *Client, w: i32, h: i32) u32 {
 pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
     const tmpheight = if (client.hasframe) barheight + client.bw else 0;
 
-    if (!client.isfullscreen) {
+    if (!client.isfullscreen and client.isfloating) {
         var min: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         var max: c.wlr_box = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
         client_get_size_hints(client, &min, &max);
@@ -535,10 +554,13 @@ pub fn applybounds(client: *Client, bbox: *c.wlr_box) void {
         client.geom.width = @max(min.width + (2 * client.bw), client.geom.width);
         client.geom.height = @max(min.height + (2 * client.bw) + tmpheight, client.geom.height);
 
-        if (max.width > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.width))
+        if (max.width > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.width)) {
             client.geom.width = @min(max.width + (2 * client.bw), client.geom.width);
-        if (max.height > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.height))
+        }
+
+        if (max.height > 0 and !(2 * client.bw > std.math.maxInt(i32) - max.height)) {
             client.geom.height = @min(max.height + (2 * client.bw) + tmpheight, client.geom.height);
+        }
     }
 
     if (client.geom.x > bbox.x + bbox.width)
@@ -1052,6 +1074,10 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
         .ltsymbol = &bad,
         .layers = undefined,
         .lt = .{ 0, 0 },
+        .m = .{
+            .x = -1,
+            .y = -1,
+        },
     });
     wlr_output.data = m;
 
@@ -1065,7 +1091,7 @@ pub fn createmon(_: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
     m.tagset[0] = 1;
     m.tagset[1] = 1;
     for (configData.monrules) |r| {
-        if (r.name == null or c.strcmp(wlr_output.name, r.name.?) != 0) {
+        if (r.name == null or std.mem.eql(u8, wlr_output.name[0..r.name.?.len], r.name.?)) {
             c.wlr_output_set_scale(wlr_output, r.scale);
             _ = c.wlr_xcursor_manager_load(cursor_mgr, r.scale);
             c.wlr_output_set_transform(wlr_output, r.rr);
@@ -1474,6 +1500,7 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
         .scene_surface = undefined,
+        .shadow_scene = undefined,
         .border = undefined,
         .surface = undefined,
         .type = .XDGShell,
@@ -1502,10 +1529,14 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
 var updateLock = std.Thread.Mutex{};
 
-pub fn client_update_frame(client: *Client, force: bool) void {
+pub fn client_update_frame(client: *Client) void {
     if (client_is_stopped(client)) return;
 
     if (client.geom.width == 0 or client.geom.height == 0) return;
+
+    var geom = std.mem.zeroes(c.wlr_box);
+    client_get_geometry(client, &geom);
+    geom.width += client.bw * 2;
 
     const targframe = client.frame and !client.isfullscreen;
 
@@ -1522,8 +1553,9 @@ pub fn client_update_frame(client: *Client, force: bool) void {
 
     const focused = if (fstack.items.len != 0) client == fstack.items[0] else false;
 
-    if (!force and client.hasframe == targframe and client.frameTabs == totalTabs and client.title != null and focused == client.framefocused) return;
+    if (client.hasframe == targframe and client.frameTabs == totalTabs and client.title != null and focused == client.framefocused and geom.width == client.frame_width) return;
     updateLock.lock();
+    client.frame_width = geom.width;
     client.hasframe = targframe;
     client.frameTabs = totalTabs;
     client.framefocused = focused;
@@ -1537,12 +1569,12 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         client.titlescene = c.wlr_scene_buffer_create(client.scene, tmp);
 
         c.wlr_scene_node_set_enabled(&client.titlescene.?.node, client.hasframe);
-        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @as(i32, @intCast(client.geom.width)), @as(i32, @intCast(client.title.?.unscaled_height)));
+        c.wlr_scene_buffer_set_dest_size(client.titlescene.?, @as(i32, @intCast(geom.width - client.bw)), @as(i32, @intCast(client.title.?.unscaled_height)));
 
         updateLock.unlock();
     }
 
-    client.title = buffers.buffer_create_cairo(@as(u32, @intCast(client.geom.width)), @as(u32, @intCast(barheight + client.bw * 2)), bufferScale, true);
+    client.title = buffers.buffer_create_cairo(@as(u32, @intCast(geom.width)) - @as(u32, @intCast(client.bw)), @as(u32, @intCast(barheight + client.bw * 2)), bufferScale, true);
 
     const cairo = client.title.?.cairo;
 
@@ -1551,7 +1583,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
     c.cairo_select_font_face(cairo, configData.font.ptr, c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_BOLD);
     c.cairo_set_font_size(cairo, fontsize);
 
-    const tabWidth: f64 = @as(f64, @floatFromInt(client.geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
+    const tabWidth: f64 = @as(f64, @floatFromInt(geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
 
     var currentTab: i32 = 0;
     for (clients.items) |tabClient| {
@@ -1559,6 +1591,11 @@ pub fn client_update_frame(client: *Client, force: bool) void {
             if (!visible_on(tabClient, client.mon.?) or tabClient.isfloating) continue;
             if (client.container != tabClient.container) continue;
         }
+
+        const parent_palette = if (focused) configData.colors[0] else configData.colors[1];
+        c.cairo_set_source_rgba(cairo, parent_palette[0][2], parent_palette[0][1], parent_palette[0][0], parent_palette[0][3]);
+        c.cairo_rectangle(cairo, tabWidth * @as(f64, @floatFromInt(currentTab)), @as(f64, @floatFromInt(tabClient.bw)) + @as(f64, @floatFromInt(tabClient.bw * 2)), tabWidth, @as(f64, @floatFromInt(barheight)) + @as(f64, @floatFromInt(tabClient.bw * 2)));
+        c.cairo_fill(cairo);
 
         const palette = if (tabClient == client and focused) configData.colors[0] else configData.colors[1];
         c.cairo_set_source_rgba(cairo, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
@@ -1589,7 +1626,7 @@ pub fn client_update_frame(client: *Client, force: bool) void {
         c.cairo_pattern_add_color_stop_rgba(pat, 1, palette[2][2], palette[2][1], palette[2][0], palette[2][3]);
 
         c.cairo_set_source(cairo, pat);
-        c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab + 1)) - exts.width - @as(f64, @floatFromInt(tabClient.bw)) - 30, @floatFromInt(tabClient.bw), exts.width + @as(f64, @floatFromInt(tabClient.bw)) + 30, @floatFromInt(barheight));
+        c.cairo_rectangle(cairo, @as(f64, @floatFromInt(tabClient.bw)) + tabWidth * @as(f64, @floatFromInt(currentTab + 1)) - exts.width - @as(f64, @floatFromInt(tabClient.bw)) - 30, @floatFromInt(tabClient.bw), exts.width + 30, @floatFromInt(barheight));
         c.cairo_fill(cairo);
 
         c.cairo_move_to(cairo, @as(f64, @floatFromInt(currentTab + 1)) * tabWidth - exts.width - @as(f64, @floatFromInt(tabClient.bw)), text_y + fontsize);
@@ -1610,7 +1647,9 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     client = c.wl_container_of(listener, client, "map");
     std.debug.print("LAYER {}\n", .{@intFromEnum(Layer.LyrTile)});
     client.scene = c.wlr_scene_tree_create(layers.get(.LyrTile));
+    client.shadow_scene = c.wlr_scene_tree_create(layers.get(.LyrFloat));
     c.wlr_scene_node_set_enabled(&client.scene.node, client.type != .XDGShell);
+    c.wlr_scene_node_set_enabled(&client.shadow_scene.node, true);
     client.scene_surface = if (client.type == .XDGShell)
         c.wlr_scene_xdg_surface_create(client.scene, client.surface.xdg)
     else
@@ -1625,6 +1664,10 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     client.scene.node.data = client;
     client.scene_surface.node.data = client;
+
+    const black: [*c]const f32 = &[_]f32{ 0, 0, 0, 0.5 };
+
+    client.shadow = c.wlr_scene_rect_create(client.shadow_scene, 0, 0, black);
 
     before: {
         if (client.type == .X11Unmanaged) {
@@ -1674,10 +1717,13 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     if (client.isfloating) {
         client.frame = true;
+
+        client_update_frame(client);
+
         resize(client, client.geom, false);
     }
 
-    client_update_frame(client, false);
+    client_update_frame(client);
 }
 
 pub fn client_set_tiled(client: *Client, edges: u32) void {
@@ -1835,6 +1881,7 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 
     c.wl_list_remove(&client.commit.link);
     c.wlr_scene_node_destroy(&client.scene.node);
+    c.wlr_scene_node_destroy(&client.shadow_scene.node);
     client.titlescene = null;
     printstatus();
     motionnotify(0, null, 0, 0, 0, 0);
@@ -1898,7 +1945,7 @@ pub fn updatetitle(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
         printstatus();
 
     if (client.hasframe)
-        client_update_frame(client, true);
+        client_update_frame(client);
 }
 
 pub fn setpsel(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) void {
@@ -1982,6 +2029,7 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
     const client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
         .scene = undefined,
+        .shadow_scene = undefined,
         .scene_surface = undefined,
         .border = undefined,
         .surface = undefined,
@@ -2358,7 +2406,7 @@ pub fn reload(arg: *const cfg.Config.Arg) void {
         configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
 
         for (clients.items) |client| {
-            client_update_frame(client, true);
+            client_update_frame(client);
             for (client.border) |border|
                 c.wlr_scene_rect_set_color(border, &configData.colors[if (client.framefocused) 0 else 1][0]);
         }
@@ -2801,7 +2849,7 @@ pub fn sigusr1(_: c_int) callconv(.C) void {
     configData = cfg.Config.source(".config/budland/budland.conf", allocator) catch return;
 
     for (clients.items) |client| {
-        client_update_frame(client, true);
+        client_update_frame(client);
         for (client.border) |border|
             c.wlr_scene_rect_set_color(border, &configData.colors[if (client.framefocused) 0 else 1][0]);
     }

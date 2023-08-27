@@ -186,6 +186,8 @@ pub const Config = struct {
                 result.mod |= c.WLR_MODIFIER_LOGO;
             } else if (std.mem.eql(u8, key, "SHIFT")) {
                 result.mod |= c.WLR_MODIFIER_SHIFT;
+            } else if (std.mem.eql(u8, key, "CTRL")) {
+                result.mod |= c.WLR_MODIFIER_CTRL;
             } else if (std.mem.eql(u8, key, "ALT")) {
                 result.mod |= c.WLR_MODIFIER_ALT;
             } else if (std.mem.eql(u8, key, "Left")) {
@@ -213,6 +215,8 @@ pub const Config = struct {
                 result.mod |= c.WLR_MODIFIER_LOGO;
             } else if (std.mem.eql(u8, key, "SHIFT")) {
                 result.mod |= c.WLR_MODIFIER_SHIFT;
+            } else if (std.mem.eql(u8, key, "CTRL")) {
+                result.mod |= c.WLR_MODIFIER_CTRL;
             } else if (std.mem.eql(u8, key, "ALT")) {
                 result.mod |= c.WLR_MODIFIER_ALT;
             } else if (std.mem.eql(u8, key, "Tab")) {
