@@ -100,8 +100,8 @@ pub fn output_printstatus_to(ipc_output: *IpcOutput) callconv(.C) void {
         }
         c.zdwl_ipc_output_v2_send_tag(ipc_output.resource, @as(u32, @intCast(tag)), state, numclients, focused_client);
     }
-    var title = if (focused) |f| main.client_get_title(f) orelse "" else "";
-    var appid = if (focused) |f| main.client_get_appid(f) orelse "" else "";
+    var title = if (focused) |f| main.client_get_title(f) orelse "???" else "Desktop";
+    var appid = if (focused) |f| main.client_get_appid(f) orelse "???" else "Desktop";
     c.zdwl_ipc_output_v2_send_layout(ipc_output.resource, monitor.sellt);
     c.zdwl_ipc_output_v2_send_title(ipc_output.resource, title.ptr);
     c.zdwl_ipc_output_v2_send_appid(ipc_output.resource, appid.ptr);

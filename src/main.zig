@@ -1,4 +1,6 @@
 const std = @import("std");
+const builtin = @import("builtin");
+
 const c = @import("c.zig");
 const cfg = @import("config.zig");
 const ipc = @import("ipc.zig");
@@ -35,11 +37,8 @@ const accel_profile = c.LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
 const accel_speed = 10.0;
 const button_map = c.LIBINPUT_CONFIG_TAP_MAP_LRM;
 
-const repeat_rate = 25;
-const repeat_delay = 200;
-
-const builtin = @import("builtin");
-pub const useclib = true;
+const repeat_rate = 10;
+const repeat_delay = 150;
 
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
@@ -1675,7 +1674,7 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     client.scene.node.data = client;
     client.scene_surface.node.data = client;
 
-    const black: [*c]const f32 = &[_]f32{ 0, 0, 0, 0.25 };
+    const black: [*c]const f32 = &[_]f32{ 0, 0, 0, 0.5 };
 
     client.shadow[0] = c.wlr_scene_rect_create(client.scene, 0, 0, black);
     client.shadow[1] = c.wlr_scene_rect_create(client.scene, 0, 0, black);
@@ -1774,7 +1773,6 @@ pub fn applyrules(client: *Client) void {
     var mon = selmon;
 
     for (configData.rules) |r| {
-        std.log.info("{any}", .{r});
         if ((r.id == null or std.mem.eql(u8, appid, r.id.?)) and (r.title == null or std.mem.eql(u8, title, r.title.?))) {
             client.isfloating = r.isfloating;
             client.iscentered = r.center;
@@ -1788,7 +1786,6 @@ pub fn applyrules(client: *Client) void {
                     mon = m;
                 }
             }
-            std.log.info("{?s}, {?s}", .{ r.id, r.title });
         }
     }
 
@@ -2821,7 +2818,6 @@ pub fn run(startup_cmd: ?[]const u8) !void {
         return error.SocketFailed;
     };
     _ = c.setenv("WAYLAND_DISPLAY", socket, 1);
-    std.log.info("{s}", .{socket});
 
     if (!c.wlr_backend_start(backend)) return error.BackendStart;
 
