@@ -163,7 +163,6 @@ const Client = struct {
     geom: c.wlr_box,
     mon: ?*Monitor,
     scene: *c.wlr_scene_tree,
-    shadow_scene: *c.wlr_scene_tree,
     title: ?*buffers.DataBuffer,
     titlescene: ?*c.wlr_scene_buffer,
     border: [4]*c.wlr_scene_rect,
@@ -194,7 +193,7 @@ const Client = struct {
     frame_width: c_int = 0,
 
     // shadow stuff
-    shadow: ?*c.wlr_scene_rect,
+    shadow: [2]*c.wlr_scene_rect,
 
     // xwayland
     activate: c.wl_listener,
@@ -204,6 +203,7 @@ const Client = struct {
     prev: c.wlr_box,
     bw: i32,
     tags: u32,
+    hasshadow: bool,
     isfloating: bool,
     isurgent: bool,
     isfullscreen: bool,
@@ -338,6 +338,8 @@ pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config
     defer allocator.free(containerUsage);
 
     for (clients.items) |client| {
+        client.hasshadow = false;
+
         if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0) {
             if (client.container == 0) {
                 client.container = 1;
@@ -345,6 +347,16 @@ pub fn bud(mon: *Monitor, igapps: i32, ogapps: i32, container: *const cfg.Config
 
             if (!client.isfloating and !client.isfullscreen)
                 containerUsage[client.container - 1] = true;
+        }
+    }
+
+    outer: for (containerUsage, 1..) |u, idx| {
+        if (!u) continue;
+        for (fstack.items) |client| {
+            if (!client.isfloating and client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and client.container == idx) {
+                client.hasshadow = igapps != 0 or ogapps != 0;
+                continue :outer;
+            }
         }
     }
 
@@ -495,11 +507,12 @@ pub fn resize(client: *Client, geo: c.wlr_box, interact: bool) void {
 
     if (!client.isfloating) geom = client.geom;
 
-    if (client.shadow) |shadow| {
-        c.wlr_scene_node_set_enabled(&shadow.node, client.isfloating);
-        c.wlr_scene_node_set_position(&shadow.node, client.geom.x + 10, client.geom.y + 10);
-        c.wlr_scene_rect_set_size(shadow, geom.width, geom.height);
-    }
+    c.wlr_scene_node_set_enabled(&client.shadow[0].node, client.hasshadow or client.isfloating);
+    c.wlr_scene_node_set_enabled(&client.shadow[1].node, client.hasshadow or client.isfloating);
+    c.wlr_scene_node_set_position(&client.shadow[0].node, geom.width, 10);
+    c.wlr_scene_node_set_position(&client.shadow[1].node, 10, geom.height);
+    c.wlr_scene_rect_set_size(client.shadow[0], 10, geom.height);
+    c.wlr_scene_rect_set_size(client.shadow[1], geom.width - 10, 10);
 
     c.wlr_scene_node_set_position(&client.scene.node, client.geom.x, client.geom.y);
     c.wlr_scene_node_set_position(&client.scene_surface.node, client.bw, client.bw + titleheight);
@@ -1498,9 +1511,9 @@ pub fn createnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C)
 
     const client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
+        .shadow = undefined,
         .scene = undefined,
         .scene_surface = undefined,
-        .shadow_scene = undefined,
         .border = undefined,
         .surface = undefined,
         .type = .XDGShell,
@@ -1645,11 +1658,8 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
 
     var client: *Client = undefined;
     client = c.wl_container_of(listener, client, "map");
-    std.debug.print("LAYER {}\n", .{@intFromEnum(Layer.LyrTile)});
     client.scene = c.wlr_scene_tree_create(layers.get(.LyrTile));
-    client.shadow_scene = c.wlr_scene_tree_create(layers.get(.LyrFloat));
     c.wlr_scene_node_set_enabled(&client.scene.node, client.type != .XDGShell);
-    c.wlr_scene_node_set_enabled(&client.shadow_scene.node, true);
     client.scene_surface = if (client.type == .XDGShell)
         c.wlr_scene_xdg_surface_create(client.scene, client.surface.xdg)
     else
@@ -1665,9 +1675,10 @@ pub fn mapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) vo
     client.scene.node.data = client;
     client.scene_surface.node.data = client;
 
-    const black: [*c]const f32 = &[_]f32{ 0, 0, 0, 0.5 };
+    const black: [*c]const f32 = &[_]f32{ 0, 0, 0, 0.25 };
 
-    client.shadow = c.wlr_scene_rect_create(client.shadow_scene, 0, 0, black);
+    client.shadow[0] = c.wlr_scene_rect_create(client.scene, 0, 0, black);
+    client.shadow[1] = c.wlr_scene_rect_create(client.scene, 0, 0, black);
 
     before: {
         if (client.type == .X11Unmanaged) {
@@ -1881,7 +1892,6 @@ pub fn unmapnotify(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(.C) 
 
     c.wl_list_remove(&client.commit.link);
     c.wlr_scene_node_destroy(&client.scene.node);
-    c.wlr_scene_node_destroy(&client.shadow_scene.node);
     client.titlescene = null;
     printstatus();
     motionnotify(0, null, 0, 0, 0, 0);
@@ -2028,8 +2038,8 @@ pub fn createnotifyx11(listener: [*c]c.wl_listener, data: ?*anyopaque) callconv(
 
     const client = allocator.create(Client) catch return;
     client.* = std.mem.zeroInit(Client, .{
+        .shadow = undefined,
         .scene = undefined,
-        .shadow_scene = undefined,
         .scene_surface = undefined,
         .border = undefined,
         .surface = undefined,
@@ -2491,8 +2501,9 @@ pub fn setcon(arg: *const cfg.Config.Arg) void {
 pub fn focuscon(arg: *const cfg.Config.Arg) void {
     if (selmon) |mon|
         for (fstack.items) |client| {
-            if (client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and client.container == arg.ui) {
+            if (!client.isfloating and client.mon == mon and (client.tags & mon.tagset[mon.seltags]) != 0 and client.container == arg.ui) {
                 focusclient(client, true);
+                break;
             }
         };
 }
