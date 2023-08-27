@@ -70,7 +70,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Budland Screen Shot][product-screenshot]](https://example.com)
+[![Budland Screen Shot][product-screenshot]](https://www.prestosilver.info/projects/budland-1)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
