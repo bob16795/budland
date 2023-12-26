@@ -9,7 +9,7 @@ const buffers = @import("buffer.zig");
 pub var configData: cfg.Config = undefined;
 
 pub var barheight: i32 = 20;
-pub var fontsize: f64 = 16;
+pub var fontsize: f64 = 14;
 pub var barpadding: i32 = 2;
 
 const sloppyfocus: bool = true;
@@ -37,8 +37,8 @@ const accel_profile = c.LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
 const accel_speed = 10.0;
 const button_map = c.LIBINPUT_CONFIG_TAP_MAP_LRM;
 
-const repeat_rate = 10;
-const repeat_delay = 150;
+const repeat_rate = 50;
+const repeat_delay = 300;
 
 pub var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 10 }){};
 pub const allocator = gpa.allocator();
@@ -1592,7 +1592,7 @@ pub fn client_update_frame(client: *Client) void {
 
     const surf = c.cairo_get_target(cairo);
 
-    c.cairo_select_font_face(cairo, configData.font.ptr, c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_BOLD);
+    c.cairo_select_font_face(cairo, configData.font.ptr, c.CAIRO_FONT_SLANT_NORMAL, c.CAIRO_FONT_WEIGHT_NORMAL);
     c.cairo_set_font_size(cairo, fontsize);
 
     const tabWidth: f64 = @as(f64, @floatFromInt(geom.width - client.bw)) / @as(f64, @floatFromInt(client.frameTabs));
